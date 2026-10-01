@@ -378,7 +378,7 @@ localStorage.setItem("guizang.room.cfg",JSON.stringify(cfg));
 
 const fixedRole=["owner","muse","dots"].includes(qs.get("as"))?qs.get("as"):null;
 let role=fixedRole||localStorage.getItem("guizang.room.role")||"owner";
-let view="chat", composeKind="chat", sb=null, channel=null, messages=[], demo=true;
+let view="chat", composeKind="chat", sb=null, channel=null, messages=[], reactions=[], pins=[], tasks=[], demo=true;
 let observer=localStorage.getItem("guizang.room.observer")==="1", replyTo=null, unread=0, typingPeers={};
 const sessionId=sessionStorage.getItem("guizang.presence")||crypto.randomUUID();
 sessionStorage.setItem("guizang.presence",sessionId);
@@ -565,7 +565,8 @@ function render(){
         <div class="bubble-wrap">
           <div class="msg-meta"><span class="author">${esc(m.author||r.name)}</span><span class="kind">${esc(KL[m.kind]||KL[k]||"消息")}</span><span>${fmt(m.created_at)}</span></div>
           <div class="bubble">${rich(m.body)}</div>
-          <div class="msg-actions"><button data-reply-id="${esc(String(m.id??""))}">回复</button><button data-copy="${encodeURIComponent(m.body)}">复制</button></div>
+          <div class="reaction-row">${renderReactions(m.id)}</div>
+          <div class="msg-actions"><button data-reply-id="${esc(String(m.id??""))}">回复</button><button data-copy="${encodeURIComponent(m.body)}">复制</button><button data-react-id="${esc(String(m.id??""))}" data-emoji="👍">👍</button><button data-react-id="${esc(String(m.id??""))}" data-emoji="💡">💡</button><button data-react-id="${esc(String(m.id??""))}" data-emoji="✅">✅</button><button data-pin-id="${esc(String(m.id??""))}">${isPinned(m.id)?"取消置顶":"置顶"}</button><button data-task-id="${esc(String(m.id??""))}">转任务</button></div>
         </div>
       </article>`;
     }).join("");
@@ -580,6 +581,7 @@ function render(){
   $("#mChat").textContent=chat;$("#mProject").textContent=proj;$("#mProposal").textContent=prop;$("#mDecision").textContent=dec;
   const ds=messages.filter(m=>normalizedKind(m.kind)==="decision").slice(-4).reverse();
   $("#decisions").innerHTML=ds.length?ds.map(d=>`<div class="feed-item"><div class="who">${esc(d.author)} · ${fmt(d.created_at)}</div>${esc(d.body.slice(0,220))}${d.body.length>220?"…":""}</div>`).join(""):`<div class="offline-note">还没有项目结论。</div>`;
+  renderCollaboration();
 }
 $("#messages").addEventListener("click",async e=>{
   const copy=e.target.closest("[data-copy]");
@@ -591,7 +593,96 @@ $("#messages").addEventListener("click",async e=>{
   }
 });
 $("#cancelReply").onclick=()=>{replyTo=null;$("#replyBar").hidden=true};
+$("#messages").addEventListener("click",async e=>{
+  const reaction=e.target.closest("[data-react-id]");
+  if(reaction){await toggleReaction(reaction.dataset.reactId,reaction.dataset.emoji);return}
+  const pin=e.target.closest("[data-pin-id]");
+  if(pin){await togglePin(pin.dataset.pinId);return}
+  const task=e.target.closest("[data-task-id]");
+  if(task){openTaskFromMessage(task.dataset.taskId);return}
+});
 
+
+function reactionItems(messageId){return reactions.filter(r=>String(r.message_id)===String(messageId))}
+function renderReactions(messageId){
+  if(messageId==null)return "";
+  const rows=reactionItems(messageId), emojis=["👍","💡","✅","❓","❤️"];
+  return emojis.map(emoji=>{
+    const rs=rows.filter(r=>r.emoji===emoji);
+    if(!rs.length)return "";
+    const mine=rs.some(r=>r.role===role);
+    return '<button class="reaction '+(mine?"mine":"")+'" data-react-id="'+esc(String(messageId))+'" data-emoji="'+emoji+'">'+emoji+' <span>'+rs.length+'</span></button>';
+  }).join("");
+}
+function isPinned(messageId){return pins.some(p=>String(p.message_id)===String(messageId))}
+async function toggleReaction(messageId,emoji){
+  if(demo||!sb){toast("实时模式下才能同步反应");return}
+  const existing=reactions.find(r=>String(r.message_id)===String(messageId)&&r.role===role&&r.emoji===emoji);
+  if(existing){const {error}=await sb.from("message_reactions").delete().eq("id",existing.id);if(error)toast("取消反应失败")}
+  else{const {error}=await sb.from("message_reactions").insert({room_key:room,message_id:Number(messageId),role,emoji});if(error&&error.code!=="23505")toast("添加反应失败")}
+}
+async function togglePin(messageId){
+  if(demo||!sb){toast("实时模式下才能同步置顶");return}
+  const existing=pins.find(p=>String(p.message_id)===String(messageId));
+  if(existing){const {error}=await sb.from("pinned_messages").delete().eq("id",existing.id);if(error)toast("取消置顶失败");else toast("已取消置顶")}
+  else{const {error}=await sb.from("pinned_messages").insert({room_key:room,message_id:Number(messageId),pinned_by:role});if(error&&error.code!=="23505")toast("置顶失败");else toast("已置顶")}
+}
+function taskAssigneeLabel(a){return a==="owner"?"我":a==="muse"?"Muse":a==="dots"?"Dots":"所有人"}
+function taskStatusLabel(st){return st==="doing"?"进行中":st==="done"?"已完成":"待处理"}
+function renderCollaboration(){
+  const open=tasks.filter(t=>t.status!=="done"),done=tasks.filter(t=>t.status==="done");
+  $("#taskBadge").textContent=open.length?"· "+open.length:"";
+  $("#taskSummary").innerHTML=open.length?open.slice(0,4).map(t=>'<button class="task-mini" data-open-task="'+t.id+'"><b>'+esc(t.title)+'</b><span>'+taskStatusLabel(t.status)+' · '+taskAssigneeLabel(t.assignee)+'</span></button>').join(""):'<div class="offline-note">'+(done.length?"当前任务都已完成。":"还没有任务。")+'</div>';
+  const pinnedMessages=pins.map(p=>messages.find(m=>String(m.id)===String(p.message_id))).filter(Boolean);
+  $("#pinsPreview").innerHTML=pinnedMessages.length?pinnedMessages.slice(-3).reverse().map(m=>'<button class="feed-item pin-preview" data-jump-message="'+esc(String(m.id))+'"><div class="who">📌 '+esc(m.author||RI[m.role]?.name||m.role)+'</div>'+esc((m.body||"").slice(0,150))+((m.body||"").length>150?"…":"")+'</button>').join(""):'<div class="offline-note">还没有置顶消息。</div>';
+  renderTaskBoard();renderPinsList();
+}
+function renderTaskBoard(){
+  const box=$("#taskBoard");if(!box)return;
+  const cols=[["todo","待处理"],["doing","进行中"],["done","已完成"]];
+  box.innerHTML=cols.map(pair=>{
+    const status=pair[0],label=pair[1],rows=tasks.filter(t=>t.status===status);
+    const cards=rows.length?rows.map(t=>{
+      const detail=t.detail?'<div class="task-card-detail">'+esc(t.detail)+'</div>':"";
+      let buttons="";
+      if(status!=="todo")buttons+='<button data-task-status="'+t.id+':todo">待处理</button>';
+      if(status!=="doing")buttons+='<button data-task-status="'+t.id+':doing">进行中</button>';
+      if(status!=="done")buttons+='<button data-task-status="'+t.id+':done">完成</button>';
+      buttons+='<button data-task-delete="'+t.id+'">删除</button>';
+      return '<article class="task-card '+status+'"><div class="task-card-title">'+esc(t.title)+'</div>'+detail+'<div class="task-card-meta"><span>@'+taskAssigneeLabel(t.assignee)+'</span><span>'+new Date(t.updated_at||t.created_at).toLocaleDateString()+'</span></div><div class="task-card-actions">'+buttons+'</div></article>';
+    }).join(""):'<div class="task-empty">暂无</div>';
+    return '<section class="task-col"><div class="task-col-head"><b>'+label+'</b><span>'+rows.length+'</span></div><div class="task-col-list">'+cards+'</div></section>';
+  }).join("");
+}
+function renderPinsList(){
+  const box=$("#pinsList");if(!box)return;
+  const rows=pins.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(p=>({p,m:messages.find(m=>String(m.id)===String(p.message_id))})).filter(x=>x.m);
+  box.innerHTML=rows.length?rows.map(x=>{const p=x.p,m=x.m;return '<div class="pin-card"><div><b>'+esc(m.author||RI[m.role]?.name||m.role)+'</b><span>'+fmt(m.created_at)+'</span></div><p>'+esc(m.body)+'</p><div><button class="mini" data-jump-message="'+esc(String(m.id))+'">定位消息</button><button class="mini" data-unpin="'+p.id+'">取消置顶</button></div></div>'}).join(""):'<div class="offline-note">还没有置顶消息。</div>';
+}
+function openTaskFromMessage(id){
+  const m=messages.find(x=>String(x.id)===String(id));if(!m)return;
+  const plain=(m.body||"").replace(/^↩[\\s\\S]*?\\n\\n/,"").trim();
+  $("#taskTitle").value=(plain.split("\\n")[0]||"").slice(0,300);$("#taskDetail").value=plain.slice(0,3000);
+  $("#taskAssignee").value="all";$("#taskStatus").value="todo";$("#taskSourceMessage").value=id;$("#tasksDlg").showModal();
+}
+async function createTask(){
+  const title=$("#taskTitle").value.trim(),detail=$("#taskDetail").value.trim();if(!title){toast("先写任务标题");return}
+  if(demo||!sb){toast("实时模式下才能同步任务");return}
+  const source=$("#taskSourceMessage").value;
+  const {error}=await sb.from("tasks").insert({room_key:room,title,detail,status:$("#taskStatus").value,assignee:$("#taskAssignee").value,created_by:role,source_message_id:source?Number(source):null});
+  if(error){console.error(error);toast("创建任务失败");return}
+  $("#taskTitle").value="";$("#taskDetail").value="";$("#taskSourceMessage").value="";toast("任务已添加");
+}
+async function setTaskStatus(id,status){if(!sb)return;const {error}=await sb.from("tasks").update({status,updated_at:new Date().toISOString()}).eq("id",Number(id));if(error)toast("更新任务失败")}
+async function deleteTask(id){if(!sb)return;const {error}=await sb.from("tasks").delete().eq("id",Number(id));if(error)toast("删除任务失败");else toast("任务已删除")}
+async function loadCollaborationData(){
+  const results=await Promise.all([
+    sb.from("message_reactions").select("*").eq("room_key",room).order("created_at",{ascending:true}),
+    sb.from("pinned_messages").select("*").eq("room_key",room).order("created_at",{ascending:true}),
+    sb.from("tasks").select("*").eq("room_key",room).order("updated_at",{ascending:false})
+  ]);
+  reactions=results[0].data||[];pins=results[1].data||[];tasks=results[2].data||[];
+}
 
 async function trackPresence(){
   if(!channel)return;
