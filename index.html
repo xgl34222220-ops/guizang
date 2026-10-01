@@ -522,7 +522,8 @@ localStorage.setItem("guizang.room.cfg",JSON.stringify(cfg));
 const fixedRole=["owner","muse","dots"].includes(qs.get("as"))?qs.get("as"):null;
 let role=fixedRole||localStorage.getItem("guizang.room.role")||"owner";
 let view="chat", composeKind="chat", sb=null, channel=null, messages=[], reactions=[], pins=[], tasks=[], demo=true;
-let sending=false, syncBusy=false, connectionGeneration=0, taskSaving=false;
+let sending=false, syncState=null, connectionGeneration=0, taskSaving=false;
+let messageScope=null,messageCursor=null,connectingGeneration=null,reconnectAfter=0;
 const unreadMessages=new Set();
 let observer=localStorage.getItem("guizang.room.observer")==="1", replyTo=null, unread=0, typingPeers={};
 const sessionId=sessionStorage.getItem("guizang.presence")||crypto.randomUUID();
@@ -852,13 +853,12 @@ async function deleteTask(id){
     tasks=tasks.filter(t=>String(t.id)!==String(id));renderCollaboration();toast("任务已删除");
   }catch(e){toast("删除未确认，请核对任务板；未自动重试")}
 }
-async function loadCollaborationData(){
-  const client=sb,generation=connectionGeneration;
+async function loadCollaborationData(client=sb,generation=connectionGeneration){
   const results=await Promise.all([
-    client.from("message_reactions").select("*").eq("room_key",room).order("created_at",{ascending:true}),
-    client.from("pinned_messages").select("*").eq("room_key",room).order("created_at",{ascending:true}),
-    client.from("tasks").select("*").eq("room_key",room).order("updated_at",{ascending:false})
-  ]);
+    client.from("message_reactions").select("*").eq("room_key",room).order("created_at",{ascending:true}).abortSignal(AbortSignal.timeout(15000)),
+    client.from("pinned_messages").select("*").eq("room_key",room).order("created_at",{ascending:true}).abortSignal(AbortSignal.timeout(15000)),
+    client.from("tasks").select("*").eq("room_key",room).order("updated_at",{ascending:false}).abortSignal(AbortSignal.timeout(15000))
+  ].map(request=>Promise.resolve(request).catch(error=>({error}))));
   if(client!==sb||generation!==connectionGeneration)return;
   if(!results[0].error)reactions=results[0].data||[];
   if(!results[1].error)pins=results[1].data||[];
@@ -866,13 +866,13 @@ async function loadCollaborationData(){
   if(results.some(r=>r.error))toast("部分协作数据未同步，保留上次结果");
 }
 
-async function trackPresence(){
-  if(!channel)return;
-  try{await channel.track({role,name:RI[role].name,session:sessionId,online_at:new Date().toISOString()})}catch{}
+async function trackPresence(target=channel){
+  if(!target)return;
+  try{await target.track({role,name:RI[role].name,session:sessionId,online_at:new Date().toISOString()})}catch{}
 }
-function syncPresence(){
-  if(!channel)return;
-  const state=channel.presenceState(), online={owner:false,muse:false,dots:false};
+function syncPresence(target=channel){
+  if(!target)return;
+  const state=target.presenceState(), online={owner:false,muse:false,dots:false};
   Object.values(state).flat().forEach(p=>{if(p?.role in online)online[p.role]=true});
   Object.entries(online).forEach(([r,on])=>document.querySelectorAll(`[data-presence="${r}"]`).forEach(el=>el.classList.toggle("on",on)));
 }
@@ -919,79 +919,159 @@ function mergeMessages(rows,{notify=true}={}){
   if(added){messages.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)||String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));showUnread();render()}
   return added;
 }
-async function syncMessages(){
-  if(!sb||demo||syncBusy||document.hidden)return;
-  const client=sb,generation=connectionGeneration;syncBusy=true;
-  try{
-    const {data,error}=await client.from("messages").select("*").eq("room_key",room).order("created_at",{ascending:false}).limit(1500).abortSignal(AbortSignal.timeout(15000));
-    if(client!==sb||generation!==connectionGeneration)return;
-    if(error)throw error;
-    mergeMessages((data||[]).reverse());
-    $("#connText").title="最近核对："+new Date().toLocaleTimeString();
-    if($("#connText").textContent==="同步暂未确认")$("#connText").textContent="消息已同步";
-  }catch(e){if(client===sb){$("#connText").textContent="同步暂未确认";console.warn("消息同步失败",e)}}
-  finally{syncBusy=false}
+function highestMessageId(rows,floor="0"){
+  let highest=BigInt(floor);
+  for(const row of rows||[]){
+    if(typeof row.id==="number"&&!Number.isSafeInteger(row.id))throw new Error("消息编号超出安全整数范围");
+    const id=String(row.id??"");
+    if(!/^\d+$/.test(id))throw new Error("消息编号无效");
+    const value=BigInt(id);if(value>highest)highest=value;
+  }
+  return highest.toString();
+}
+async function boundedConnectionWait(promise){
+  let timer;
+  try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error("连接清理超时")),15000)})])}
+  finally{clearTimeout(timer)}
+}
+async function syncMessages({force=false}={}){
+  if(!sb||demo||messageCursor===null||(!force&&document.hidden))return;
+  const client=sb,generation=connectionGeneration,scope=messageScope;
+  const current=()=>client===sb&&generation===connectionGeneration&&scope===messageScope;
+  if(syncState?.client===client&&syncState.generation===generation){
+    syncState.again=true;return syncState.promise;
+  }
+  const job={client,generation,again:false,promise:null};syncState=job;
+  job.promise=(async()=>{
+    try{
+      do{
+        job.again=false;
+        // Only successful ordered reads advance this cursor. A newer realtime
+        // event must not move it past an unread gap during reconnect/catch-up.
+        let cursor=messageCursor;
+        while(current()){
+          const {data,error}=await client.from("messages").select("*").eq("room_key",room)
+            .gt("id",cursor).order("id",{ascending:true}).limit(500).abortSignal(AbortSignal.timeout(15000));
+          if(!current())return;
+          if(error)throw error;
+          const rows=data||[];if(!rows.length)break;
+          const next=highestMessageId(rows,cursor);
+          if(BigInt(next)<=BigInt(cursor))throw new Error("消息补读未取得进展");
+          mergeMessages(rows);cursor=next;messageCursor=next;
+        }
+        // Keep the existing bounded recent-history reconciliation: PostgreSQL
+        // identity allocation is not commit order. Do not advance the catch-up
+        // cursor from this window or it could jump over an unread larger gap.
+        const {data:recent,error:recentError}=await client.from("messages").select("*").eq("room_key",room)
+          .order("id",{ascending:false}).limit(1500).abortSignal(AbortSignal.timeout(15000));
+        if(!current())return;if(recentError)throw recentError;
+        mergeMessages((recent||[]).reverse());
+      }while(current()&&job.again);
+      if(!current())return;
+      $("#connText").title="最近核对："+new Date().toLocaleTimeString();
+      if($("#connText").textContent==="同步暂未确认")$("#connText").textContent="消息已同步";
+    }catch(e){if(current()){$("#connText").textContent="同步暂未确认";console.warn("消息同步失败",e)}}
+    finally{if(syncState===job)syncState=null}
+  })();
+  return job.promise;
+}
+function resetConnectionScope(){
+  messages=[];reactions=[];pins=[];tasks=[];typingPeers={};
+  unreadMessages.clear();unread=0;replyTo=null;$("#replyBar").hidden=true;
+  document.querySelectorAll("[data-presence]").forEach(el=>el.classList.remove("on"));
+  updateTyping();showUnread();render();renderCollaboration();
+}
+async function recoverConnection(){
+  if(document.hidden||navigator.onLine===false||demo)return;
+  if(messageCursor===null||!channel){
+    if(connectingGeneration===null&&Date.now()>=reconnectAfter)await connect();
+  }else await syncMessages();
 }
 async function connect(){
-  const generation=++connectionGeneration;
-  if(channel&&sb)try{await sb.removeChannel(channel)}catch{}
+  const generation=++connectionGeneration,previousClient=sb,previousChannel=channel;
+  connectingGeneration=generation;
+  try{
+  channel=null;
+  if(previousChannel&&previousClient)try{await boundedConnectionWait(previousClient.removeChannel(previousChannel))}catch{}
   if(generation!==connectionGeneration)return;
   if(!cfg.sb||!cfg.key){
-    demo=true;sb=null;messages=JSON.parse(localStorage.getItem(`guizang.room.messages.${room}`)||"[]");
+    demo=true;sb=null;const scope="local|"+room;
+    if(messageScope!==scope)resetConnectionScope();messageScope=scope;messageCursor=null;
+    messages=JSON.parse(localStorage.getItem(`guizang.room.messages.${room}`)||"[]");
     $("#connDot").classList.remove("on");$("#connText").textContent="本机模式";applyMeta();render();return;
   }
   try{
-    demo=false;sb=createClient(cfg.sb,cfg.key);
-    const {data:rm,error:re}=await sb.from("rooms").select("*").eq("room_key",room).maybeSingle();
-    if(generation!==connectionGeneration)return;
+    demo=false;const client=createClient(cfg.sb,cfg.key);sb=client;
+    const scope=cfg.sb+"|"+room,hasHistory=messageScope===scope&&messageCursor!==null;
+    if(messageScope!==scope){resetConnectionScope();messageScope=scope;messageCursor=null}
+    const current=()=>generation===connectionGeneration&&client===sb;
+    const {data:rm,error:re}=await client.from("rooms").select("*").eq("room_key",room).maybeSingle().abortSignal(AbortSignal.timeout(15000));
+    if(!current())return;
     if(re)throw re;
     if(rm)applyMeta(rm);else{
       const row={room_key:room,repo_url:cfg.repo||"",title:cfg.title||"归藏共享聊天室",objective:cfg.objective||""};
-      const {error}=await sb.from("rooms").insert(row);if(error)throw error;applyMeta(row);
+      const {error}=await client.from("rooms").insert(row).abortSignal(AbortSignal.timeout(15000));
+      if(!current())return;if(error)throw error;applyMeta(row);
     }
-    const {data,error}=await sb.from("messages").select("*").eq("room_key",room).order("created_at",{ascending:false}).limit(1500);
-    if(generation!==connectionGeneration)return;
-    if(error)throw error;messages=(data||[]).reverse();await loadCollaborationData();render();
-    channel=sb.channel(`guizang-${room}`,{config:{presence:{key:sessionId},broadcast:{self:false}}})
+    if(!hasHistory){
+      const {data,error}=await client.from("messages").select("*").eq("room_key",room).order("id",{ascending:false}).limit(1500).abortSignal(AbortSignal.timeout(15000));
+      if(!current())return;if(error)throw error;
+      const rows=(data||[]).reverse();messageCursor=highestMessageId(rows);mergeMessages(rows,{notify:false});
+    }else{
+      await syncMessages({force:true});if(!current())return;
+    }
+    await loadCollaborationData(client,generation);if(!current())return;render();
+    const currentChannel=client.channel(`guizang-${room}`,{config:{presence:{key:sessionId},broadcast:{self:false}}})
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`room_key=eq.${room}`},p=>{
-        if(generation===connectionGeneration)mergeMessages([p.new]);
+        if(current())mergeMessages([p.new]);
       })
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"message_reactions",filter:"room_key=eq."+room},p=>{
+        if(!current())return;
         if(!reactions.some(x=>x.id===p.new.id))reactions.push(p.new);
         render();
       })
       .on("postgres_changes",{event:"DELETE",schema:"public",table:"message_reactions"},p=>{
+        if(!current())return;
         if(reactions.some(x=>x.id===p.old.id)){reactions=reactions.filter(x=>x.id!==p.old.id);render()}
       })
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"pinned_messages",filter:"room_key=eq."+room},p=>{
+        if(!current())return;
         if(!pins.some(x=>x.id===p.new.id))pins.push(p.new);
         render();
       })
       .on("postgres_changes",{event:"DELETE",schema:"public",table:"pinned_messages"},p=>{
+        if(!current())return;
         if(pins.some(x=>x.id===p.old.id)){pins=pins.filter(x=>x.id!==p.old.id);render()}
       })
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"tasks",filter:"room_key=eq."+room},p=>{
+        if(!current())return;
         if(!tasks.some(x=>x.id===p.new.id))tasks.unshift(p.new);
         renderCollaboration();
       })
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"tasks",filter:"room_key=eq."+room},p=>{
+        if(!current())return;
         tasks=tasks.map(x=>x.id===p.new.id?p.new:x);
         renderCollaboration();
       })
       .on("postgres_changes",{event:"DELETE",schema:"public",table:"tasks"},p=>{
+        if(!current())return;
         if(tasks.some(x=>x.id===p.old.id)){tasks=tasks.filter(x=>x.id!==p.old.id);renderCollaboration()}
       })
-      .on("broadcast",{event:"typing"},({payload})=>{if(payload?.active)noteTyping(payload.role)})
-      .on("presence",{event:"sync"},syncPresence)
-      .subscribe(async status=>{
-        if(generation!==connectionGeneration)return;
+      .on("broadcast",{event:"typing"},({payload})=>{if(current()&&payload?.active)noteTyping(payload.role)})
+      .on("presence",{event:"sync"},()=>{if(current())syncPresence(currentChannel)});
+    if(!current())return;channel=currentChannel;
+    currentChannel.subscribe(async status=>{
+        if(!current()||channel!==currentChannel)return;
         const on=status==="SUBSCRIBED";$("#connDot").classList.toggle("on",on);
         $("#connText").textContent=on?"实时在线":["CHANNEL_ERROR","TIMED_OUT","CLOSED"].includes(status)?"实时连接中断":"连接中";
-        if(on){await trackPresence();await syncMessages()}
+        if(on){void trackPresence(currentChannel);await syncMessages({force:true})}
       });
   }catch(e){
     if(generation!==connectionGeneration)return;
     console.error(e);$("#connDot").classList.remove("on");$("#connText").textContent="连接失败";toast("连接失败：请检查 Supabase 配置，并执行升级 SQL");
+  }
+  }finally{
+    if(connectingGeneration===generation){connectingGeneration=null;reconnectAfter=Date.now()+30000}
   }
 }
 
@@ -1133,8 +1213,8 @@ document.addEventListener("keydown",e=>{
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="j"){e.preventDefault();openTasks()}
 });
 
-setInterval(()=>{void syncMessages()},30000);
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)void syncMessages()});
+setInterval(()=>{void recoverConnection()},30000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)void recoverConnection()});
 setRole(role);applyMeta();setView("chat");connect();
 </script>
 </body>
