@@ -266,6 +266,18 @@ dialog,.modal{background:var(--glass);backdrop-filter:none;-webkit-backdrop-filt
 @media(hover:none){.msg-actions{opacity:1}.msg-actions button{min-height:36px}}
 @media(prefers-color-scheme:dark){:root{--bg:#121418;--glass:#1B1E24;--glass2:#22262D;--text:#E6E9EE;--muted:#ADB4C0;--soft:#929BAA;--line:rgba(255,255,255,.08)}body{background:var(--bg)}.topbar{background:rgba(27,30,36,.90)}.room .msg.role-owner .bubble{background:#E6E9EE;color:#1F2531}.room .msg.role-muse .bubble{background:#262333;color:#E8E1F5;box-shadow:inset 0 0 0 1px rgba(212,195,255,.13)}.room .msg.role-dots .bubble{background:#1C2D26;color:#DCEFE4;box-shadow:inset 0 0 0 1px rgba(174,228,199,.13)}.room .role-owner .bubble a{color:#315AA0}.room .role-muse .bubble a,.room .role-dots .bubble a{color:#AAC5FF}.composer{background:#1D2128;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}.replybar{background:#282334;color:#C8BEDD}.replybar b{color:var(--text)}.proposal .kind{color:#E8BC70;background:#352C1D}.decision .kind{color:#9ACCE8;background:#1F303C}.todo .kind{color:#F0A495;background:#392621}.send{background:#E6E9EE;color:#1F2531}.mobile-nav{background:#1B1E24}.logo{background:#E6E9EE;color:#1F2531}}
 
+
+/* Mobile connection state stays visible; members are accessible without the sidebar. */
+@media(max-width:760px){
+ .topbar .live{display:flex;flex-shrink:0;gap:5px;font-size:10px;max-width:96px}
+ .topbar .brand{min-width:0}.topbar .brand b,.topbar .brand span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+ .topbar .brand span{max-width:108px}.topbar .actions{flex-shrink:0}
+ .room-head-row{flex-wrap:wrap;gap:8px}.room-head-actions{flex-wrap:wrap}
+ #membersDlg{margin:auto 0 0;width:100%;max-width:none;border-radius:24px 24px 0 0}
+ #membersDlg .modal{padding-bottom:calc(20px + env(safe-area-inset-bottom))}
+}
+#membersDlg .member-note{font-size:12px;line-height:1.65;color:var(--muted)}
+
 </style>
 </head>
 <body>
@@ -273,7 +285,7 @@ dialog,.modal{background:var(--glass);backdrop-filter:none;-webkit-backdrop-filt
 <header class="topbar glass">
   <div class="logo" aria-label="归藏">☷</div>
   <div class="brand"><b id="brandTitle">归藏共享聊天室</b><span id="brandSub">自由聊天 · 项目协作 · Muse × Dots</span></div>
-  <div class="live"><span class="dot" id="connDot"></span><span id="connText">连接中</span></div>
+  <div class="live" role="status" aria-live="polite"><span class="dot" id="connDot"></span><span id="connText">连接中</span></div>
   <div class="actions">
     <button class="btn desktop" id="tasksBtn">任务板 <span id="taskBadge"></span></button>
     <button class="btn desktop" id="pinsBtn">置顶</button>
@@ -332,6 +344,7 @@ dialog,.modal{background:var(--glass);backdrop-filter:none;-webkit-backdrop-filt
       <div class="room-head-actions">
         <button class="btn ghost mobile-project" id="mobileProject">项目</button>
         <button class="btn ghost mobile-project" id="mobileTasks">任务</button>
+        <button class="btn ghost mobile-project" id="membersBtn">成员</button>
         <button class="btn ghost" id="searchBtn">搜索</button>
         <button class="btn ghost desktop" id="mentionBoth">@Muse + @Dots</button>
       </div>
@@ -425,6 +438,12 @@ dialog,.modal{background:var(--glass);backdrop-filter:none;-webkit-backdrop-filt
   <div class="modal-actions"><button class="btn" id="cancelSettings">取消</button><button class="btn dark" id="saveSettings">保存并连接</button></div>
 </div>
 </dialog>
+
+<dialog id="membersDlg" aria-labelledby="membersTitle"><div class="modal"><h2 id="membersTitle">房间成员</h2><p class="member-note">在线标记表示网页连接状态，不代表助手持续工作；角色名称不是身份认证。</p>    <div class="people">
+      <div class="person"><div class="avatar owner">我<span class="presence" data-presence="owner"></span></div><div><div class="pn">我（角色）</div><div class="ps">选择了“我”角色</div></div></div>
+      <div class="person"><div class="avatar muse">M<span class="presence" data-presence="muse"></span></div><div><div class="pn">Muse</div><div class="ps">聊天 · 分析 · 审查</div></div></div>
+      <div class="person"><div class="avatar dots">D<span class="presence" data-presence="dots"></span></div><div><div class="pn">Dots</div><div class="ps">聊天 · 分析 · 审查</div></div></div>
+    </div><div class="modal-actions"><button class="btn" id="closeMembers">关闭</button></div></div></dialog>
 
 <dialog id="projectDlg">
 <div class="modal">
@@ -855,7 +874,7 @@ function syncPresence(){
   if(!channel)return;
   const state=channel.presenceState(), online={owner:false,muse:false,dots:false};
   Object.values(state).flat().forEach(p=>{if(p?.role in online)online[p.role]=true});
-  Object.entries(online).forEach(([r,on])=>document.querySelector(`[data-presence="${r}"]`)?.classList.toggle("on",on));
+  Object.entries(online).forEach(([r,on])=>document.querySelectorAll(`[data-presence="${r}"]`).forEach(el=>el.classList.toggle("on",on)));
 }
 
 function updateTyping(){
@@ -1103,6 +1122,8 @@ $("#saveSettings").onclick=async()=>{
   setView(view);toast("设置已保存");
 };
 
+$("#membersBtn").onclick=()=>$("#membersDlg").showModal();
+$("#closeMembers").onclick=()=>$("#membersDlg").close();
 const pd=$("#projectDlg");$("#mobileProject").onclick=()=>pd.showModal();$("#closeProject").onclick=()=>pd.close();
 
 window.addEventListener("offline",()=>{$("#connDot").classList.remove("on");$("#connText").textContent="网络断开";toast("网络已断开，恢复后会重新连接")});
