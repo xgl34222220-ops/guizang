@@ -547,6 +547,7 @@ let role=fixedRole||localStorage.getItem("guizang.room.role")||"owner";
 let view="chat", composeKind="chat", sb=null, channel=null, messages=[], reactions=[], pins=[], tasks=[], demo=true;
 let sending=false, syncState=null, connectionGeneration=0, taskSaving=false;
 let messageScope=null,messageCursor=null,connectingGeneration=null,reconnectAfter=0;
+let messageNavigation=0;
 const unreadMessages=new Set();
 let observer=localStorage.getItem("guizang.room.observer")==="1", replyTo=null, unread=0, typingPeers={};
 const sessionId=sessionStorage.getItem("guizang.presence")||crypto.randomUUID();
