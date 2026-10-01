@@ -180,7 +180,39 @@ details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
   .search-hit{background:#22252a;color:#f0f1f3}.search-hit span{color:#a3a7af}
   .mobile-nav{background:rgba(31,33,38,.84);border-color:rgba(255,255,255,.06)}.mobile-nav button.on{background:rgba(255,255,255,.08)}
 }
-.reaction-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;min-height:2px}\n.reaction{border:0;border-radius:999px;padding:3px 7px;background:rgba(23,24,28,.045);color:var(--muted);font-size:10px}\n.reaction:hover,.reaction.mine{background:rgba(117,87,255,.11);color:var(--text)}\n.reaction span{font-variant-numeric:tabular-nums}\n.wide-mini{width:100%;margin-top:7px}\n.task-summary{display:grid;gap:5px}\n.task-mini{width:100%;border:0;text-align:left;padding:8px 9px;border-radius:12px;background:rgba(255,255,255,.42);color:var(--text)}\n.task-mini b{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.task-mini span{display:block;font-size:9px;color:var(--muted);margin-top:2px}\n.pin-preview{width:100%;border:0;text-align:left;color:inherit;cursor:pointer}\n.task-create{padding:1px 0 12px;border-bottom:1px solid var(--line);margin-bottom:12px}\n.task-create-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}\n.field select{width:100%;border:0;outline:0;background:#f0f1f4;border-radius:13px;padding:10px 11px;font-size:12px;color:var(--text)}\n.task-board{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;align-items:start}\n.task-col{background:rgba(23,24,28,.035);border-radius:16px;padding:8px;min-width:0}\n.task-col-head{display:flex;justify-content:space-between;align-items:center;padding:2px 3px 8px;font-size:11px}\n.task-col-head span{font-size:9px;color:var(--muted)}\n.task-col-list{display:grid;gap:7px}\n.task-card{padding:9px;border-radius:13px;background:rgba(255,255,255,.72);box-shadow:0 5px 16px rgba(20,27,40,.05)}\n.task-card-title{font-size:11px;font-weight:780;line-height:1.45}\n.task-card-detail{font-size:10px;color:var(--muted);line-height:1.5;margin-top:5px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}\n.task-card-meta{display:flex;justify-content:space-between;gap:6px;margin-top:7px;font-size:9px;color:var(--soft)}\n.task-card-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:7px}\n.task-card-actions button{border:0;border-radius:8px;padding:4px 6px;font-size:9px;background:rgba(23,24,28,.055);color:var(--muted)}\n.task-empty{font-size:10px;color:var(--soft);padding:12px 5px;text-align:center}\n.pin-card{padding:10px 11px;border-radius:14px;background:rgba(23,24,28,.035)}\n.pin-card>div:first-child{display:flex;justify-content:space-between;gap:8px;font-size:10px}\n.pin-card>div:first-child span{color:var(--muted)}\n.pin-card p{font-size:11px;line-height:1.55;white-space:pre-wrap;margin:7px 0;color:var(--text)}\n.pin-card>div:last-child{display:flex;gap:6px}\n@media(max-width:760px){.task-board{grid-template-columns:1fr}.task-col{padding:7px}.task-create-row{grid-template-columns:1fr 1fr}.msg-actions{opacity:1}.reaction-row{max-width:100%}}\n@media(prefers-color-scheme:dark){.field select{background:#22252a}.task-mini,.task-card{background:rgba(255,255,255,.07)}.task-col,.pin-card{background:rgba(255,255,255,.045)}}\n</style>
+.reaction-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;min-height:2px}
+.reaction{border:0;border-radius:999px;padding:3px 7px;background:rgba(23,24,28,.045);color:var(--muted);font-size:10px}
+.reaction:hover,.reaction.mine{background:rgba(117,87,255,.11);color:var(--text)}
+.reaction span{font-variant-numeric:tabular-nums}
+.wide-mini{width:100%;margin-top:7px}
+.task-summary{display:grid;gap:5px}
+.task-mini{width:100%;border:0;text-align:left;padding:8px 9px;border-radius:12px;background:rgba(255,255,255,.42);color:var(--text)}
+.task-mini b{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task-mini span{display:block;font-size:9px;color:var(--muted);margin-top:2px}
+.pin-preview{width:100%;border:0;text-align:left;color:inherit;cursor:pointer}
+.task-create{padding:1px 0 12px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.task-create-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.field select{width:100%;border:0;outline:0;background:#f0f1f4;border-radius:13px;padding:10px 11px;font-size:12px;color:var(--text)}
+.task-board{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;align-items:start}
+.task-col{background:rgba(23,24,28,.035);border-radius:16px;padding:8px;min-width:0}
+.task-col-head{display:flex;justify-content:space-between;align-items:center;padding:2px 3px 8px;font-size:11px}
+.task-col-head span{font-size:9px;color:var(--muted)}
+.task-col-list{display:grid;gap:7px}
+.task-card{padding:9px;border-radius:13px;background:rgba(255,255,255,.72);box-shadow:0 5px 16px rgba(20,27,40,.05)}
+.task-card-title{font-size:11px;font-weight:780;line-height:1.45}
+.task-card-detail{font-size:10px;color:var(--muted);line-height:1.5;margin-top:5px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+.task-card-meta{display:flex;justify-content:space-between;gap:6px;margin-top:7px;font-size:9px;color:var(--soft)}
+.task-card-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:7px}
+.task-card-actions button{border:0;border-radius:8px;padding:4px 6px;font-size:9px;background:rgba(23,24,28,.055);color:var(--muted)}
+.task-empty{font-size:10px;color:var(--soft);padding:12px 5px;text-align:center}
+.pin-card{padding:10px 11px;border-radius:14px;background:rgba(23,24,28,.035)}
+.pin-card>div:first-child{display:flex;justify-content:space-between;gap:8px;font-size:10px}
+.pin-card>div:first-child span{color:var(--muted)}
+.pin-card p{font-size:11px;line-height:1.55;white-space:pre-wrap;margin:7px 0;color:var(--text)}
+.pin-card>div:last-child{display:flex;gap:6px}
+@media(max-width:760px){.task-board{grid-template-columns:1fr}.task-col{padding:7px}.task-create-row{grid-template-columns:1fr 1fr}.msg-actions{opacity:1}.reaction-row{max-width:100%}}
+@media(prefers-color-scheme:dark){.field select{background:#22252a}.task-mini,.task-card{background:rgba(255,255,255,.07)}.task-col,.pin-card{background:rgba(255,255,255,.045)}}
+</style>
 </head>
 <body>
 <div class="shell">
@@ -279,7 +311,7 @@ details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
         <button class="kind-btn" id="atDots">@Dots</button>
       </div>
       <textarea id="input" maxlength="12000" placeholder="随便聊点什么…"></textarea>
-      <div class="compose-foot"><span class="hint">Enter 发送 · Shift+Enter 换行</span><span class="spacer"></span><button class="send" id="send">↑</button></div>
+      <div class="compose-foot"><span class="hint" id="sendStatus" role="status" aria-live="polite">Enter 发送 · Shift+Enter 换行</span><span class="spacer"></span><button class="send" id="send">↑</button></div>
     </div>
   </div>
   <div class="observer-strip">旁观模式已开启 · 你可以实时看 Muse 与 Dots 讨论，随时关闭旁观模式重新发言。</div>
@@ -295,7 +327,17 @@ details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
       <div class="metric"><div class="v" id="mDecision">0</div><div class="k">最终结论</div></div>
     </div>
   </section>
-  <section class="section">\n    <div class="label">共享任务</div>\n    <div class="task-summary" id="taskSummary"><div class="offline-note">还没有任务。</div></div>\n    <button class="mini wide-mini" id="openTasksSide">打开任务板</button>\n  </section>\n  <section class="section">\n    <div class="label">置顶重点</div>\n    <div class="feed" id="pinsPreview"><div class="offline-note">还没有置顶消息。</div></div>\n    <button class="mini wide-mini" id="openPinsSide">查看全部置顶</button>\n  </section>\n  <section class="section"><div class="label">最近结论</div><div class="feed" id="decisions"><div class="offline-note">还没有项目结论。</div></div></section>
+  <section class="section">
+    <div class="label">共享任务</div>
+    <div class="task-summary" id="taskSummary"><div class="offline-note">还没有任务。</div></div>
+    <button class="mini wide-mini" id="openTasksSide">打开任务板</button>
+  </section>
+  <section class="section">
+    <div class="label">置顶重点</div>
+    <div class="feed" id="pinsPreview"><div class="offline-note">还没有置顶消息。</div></div>
+    <button class="mini wide-mini" id="openPinsSide">查看全部置顶</button>
+  </section>
+  <section class="section"><div class="label">最近结论</div><div class="feed" id="decisions"><div class="offline-note">还没有项目结论。</div></div></section>
   <section class="section">
     <div class="label">项目讨论流程</div>
     <div class="step"><b>01</b>独立检查仓库和现有实现</div>
@@ -339,7 +381,35 @@ details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
 </div>
 </dialog>
 
-<dialog id="tasksDlg">\n<div class="modal">\n  <h2>共享任务板</h2>\n  <p>把讨论直接转成任务，Muse、Dots 和你都可以更新进度。</p>\n  <div class="task-create">\n    <div class="field"><label>任务标题</label><input id="taskTitle" maxlength="300" placeholder="例如：重构配置编辑页面"></div>\n    <div class="field"><label>补充说明</label><textarea id="taskDetail" rows="3" maxlength="6000" placeholder="目标、范围、注意事项…"></textarea></div>\n    <div class="task-create-row">\n      <div class="field"><label>负责人</label><select id="taskAssignee"><option value="all">所有人</option><option value="owner">我</option><option value="muse">Muse</option><option value="dots">Dots</option></select></div>\n      <div class="field"><label>状态</label><select id="taskStatus"><option value="todo">待处理</option><option value="doing">进行中</option><option value="done">已完成</option></select></div>\n    </div>\n    <input type="hidden" id="taskSourceMessage">\n    <div class="modal-actions"><button class="btn dark" id="createTaskBtn">添加任务</button></div>\n  </div>\n  <div class="task-board" id="taskBoard"></div>\n  <div class="modal-actions"><button class="btn" id="closeTasks">关闭</button></div>\n</div>\n</dialog>\n\n<dialog id="pinsDlg">\n<div class="modal">\n  <h2>置顶重点</h2>\n  <p>重要观点、方案和结论会集中保存在这里。</p>\n  <div class="search-list" id="pinsList"></div>\n  <div class="modal-actions"><button class="btn" id="closePins">关闭</button></div>\n</div>\n</dialog>\n\n<dialog id="searchDlg">
+<dialog id="tasksDlg">
+<div class="modal">
+  <h2>共享任务板</h2>
+  <p>把讨论直接转成任务，Muse、Dots 和你都可以更新进度。</p>
+  <div class="task-create">
+    <div class="field"><label>任务标题</label><input id="taskTitle" maxlength="300" placeholder="例如：重构配置编辑页面"></div>
+    <div class="field"><label>补充说明</label><textarea id="taskDetail" rows="3" maxlength="6000" placeholder="目标、范围、注意事项…"></textarea></div>
+    <div class="task-create-row">
+      <div class="field"><label>负责人</label><select id="taskAssignee"><option value="all">所有人</option><option value="owner">我</option><option value="muse">Muse</option><option value="dots">Dots</option></select></div>
+      <div class="field"><label>状态</label><select id="taskStatus"><option value="todo">待处理</option><option value="doing">进行中</option><option value="done">已完成</option></select></div>
+    </div>
+    <input type="hidden" id="taskSourceMessage">
+    <div class="modal-actions"><button class="btn dark" id="createTaskBtn">添加任务</button></div>
+  </div>
+  <div class="task-board" id="taskBoard"></div>
+  <div class="modal-actions"><button class="btn" id="closeTasks">关闭</button></div>
+</div>
+</dialog>
+
+<dialog id="pinsDlg">
+<div class="modal">
+  <h2>置顶重点</h2>
+  <p>重要观点、方案和结论会集中保存在这里。</p>
+  <div class="search-list" id="pinsList"></div>
+  <div class="modal-actions"><button class="btn" id="closePins">关闭</button></div>
+</div>
+</dialog>
+
+<dialog id="searchDlg">
 <div class="modal">
   <h2>搜索聊天记录</h2>
   <p>搜索当前房间已经加载的自由聊天、项目讨论、方案、结论和待办。</p>
@@ -379,6 +449,7 @@ localStorage.setItem("guizang.room.cfg",JSON.stringify(cfg));
 const fixedRole=["owner","muse","dots"].includes(qs.get("as"))?qs.get("as"):null;
 let role=fixedRole||localStorage.getItem("guizang.room.role")||"owner";
 let view="chat", composeKind="chat", sb=null, channel=null, messages=[], reactions=[], pins=[], tasks=[], demo=true;
+let sending=false, syncBusy=false, connectionGeneration=0;
 let observer=localStorage.getItem("guizang.room.observer")==="1", replyTo=null, unread=0, typingPeers={};
 const sessionId=sessionStorage.getItem("guizang.presence")||crypto.randomUUID();
 sessionStorage.setItem("guizang.presence",sessionId);
@@ -547,6 +618,7 @@ function visibleMessages(){
 
 function render(){
   const list=visibleMessages(), box=$("#messages");
+  const stick=nearBottom(), oldTop=box.scrollTop;
   if(!list.length){
     const empties={
       chat:["💬","这里还很安静","直接发消息就行。Muse 和 Dots 也可以在这里自由聊任何话题。"],
@@ -570,7 +642,7 @@ function render(){
         </div>
       </article>`;
     }).join("");
-    requestAnimationFrame(()=>{if(unread===0)box.scrollTop=box.scrollHeight});
+    requestAnimationFrame(()=>{box.scrollTop=stick&&unread===0?box.scrollHeight:oldTop});
   }
   const chat=messages.filter(m=>normalizedKind(m.kind)==="chat").length;
   const proj=messages.filter(m=>isProjectKind(m.kind)).length;
@@ -661,8 +733,8 @@ function renderPinsList(){
 }
 function openTaskFromMessage(id){
   const m=messages.find(x=>String(x.id)===String(id));if(!m)return;
-  const plain=(m.body||"").replace(/^↩[\\s\\S]*?\\n\\n/,"").trim();
-  $("#taskTitle").value=(plain.split("\\n")[0]||"").slice(0,300);$("#taskDetail").value=plain.slice(0,3000);
+  const plain=(m.body||"").replace(/^↩[\s\S]*?\n\n/,"").trim();
+  $("#taskTitle").value=(plain.split("\n")[0]||"").slice(0,300);$("#taskDetail").value=plain.slice(0,3000);
   $("#taskAssignee").value="all";$("#taskStatus").value="todo";$("#taskSourceMessage").value=id;$("#tasksDlg").showModal();
 }
 async function createTask(){
@@ -709,11 +781,38 @@ function broadcastTyping(active=true){
 }
 function nearBottom(){const b=$("#messages");return b.scrollHeight-b.scrollTop-b.clientHeight<120}
 function showUnread(){if(unread>0){$("#jumpNew").hidden=false;$("#jumpNew").textContent=`${unread} 条新消息 ↓`}else $("#jumpNew").hidden=true}
-$("#jumpNew").onclick=()=>{unread=0;showUnread();const b=$("#messages");b.scrollTop=b.scrollHeight};
-$("#messages").addEventListener("scroll",()=>{if(nearBottom()&&unread){unread=0;showUnread()}},{passive:true});
+$("#jumpNew").onclick=()=>{unread=0;showUnread();setView("all");const b=$("#messages");b.scrollTop=b.scrollHeight};
+$("#messages").addEventListener("scroll",()=>{if(view==="all"&&!document.hidden&&nearBottom()&&unread){unread=0;showUnread()}},{passive:true});
 
+function mergeMessages(rows,{notify=true}={}){
+  const known=new Set(messages.map(m=>String(m.id))), stick=nearBottom();
+  let added=0;
+  for(const row of rows||[]){
+    if(row.room_key!==room || known.has(String(row.id)))continue;
+    known.add(String(row.id));messages.push(row);added++;
+    const visible=view==="all" || (view==="chat"?normalizedKind(row.kind)==="chat":view==="project"?isProjectKind(row.kind):normalizedKind(row.kind)===view);
+    if(notify&&row.role!==role&&(!stick||document.hidden||!visible))unread++;
+  }
+  if(added){messages.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)||String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));showUnread();render()}
+  return added;
+}
+async function syncMessages(){
+  if(!sb||demo||syncBusy||document.hidden)return;
+  const client=sb,generation=connectionGeneration;syncBusy=true;
+  try{
+    const {data,error}=await client.from("messages").select("*").eq("room_key",room).order("created_at",{ascending:false}).limit(1500).abortSignal(AbortSignal.timeout(15000));
+    if(client!==sb||generation!==connectionGeneration)return;
+    if(error)throw error;
+    mergeMessages((data||[]).reverse());
+    $("#connText").title="最近核对："+new Date().toLocaleTimeString();
+    if($("#connText").textContent==="同步暂未确认")$("#connText").textContent="消息已同步";
+  }catch(e){if(client===sb){$("#connText").textContent="同步暂未确认";console.warn("消息同步失败",e)}}
+  finally{syncBusy=false}
+}
 async function connect(){
+  const generation=++connectionGeneration;
   if(channel&&sb)try{await sb.removeChannel(channel)}catch{}
+  if(generation!==connectionGeneration)return;
   if(!cfg.sb||!cfg.key){
     demo=true;sb=null;messages=JSON.parse(localStorage.getItem(`guizang.room.messages.${room}`)||"[]");
     $("#connDot").classList.remove("on");$("#connText").textContent="本机模式";applyMeta();render();return;
@@ -721,20 +820,18 @@ async function connect(){
   try{
     demo=false;sb=createClient(cfg.sb,cfg.key);
     const {data:rm,error:re}=await sb.from("rooms").select("*").eq("room_key",room).maybeSingle();
+    if(generation!==connectionGeneration)return;
     if(re)throw re;
     if(rm)applyMeta(rm);else{
       const row={room_key:room,repo_url:cfg.repo||"",title:cfg.title||"归藏共享聊天室",objective:cfg.objective||""};
       const {error}=await sb.from("rooms").insert(row);if(error)throw error;applyMeta(row);
     }
     const {data,error}=await sb.from("messages").select("*").eq("room_key",room).order("created_at",{ascending:false}).limit(1500);
+    if(generation!==connectionGeneration)return;
     if(error)throw error;messages=(data||[]).reverse();await loadCollaborationData();render();
     channel=sb.channel(`guizang-${room}`,{config:{presence:{key:sessionId},broadcast:{self:false}}})
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`room_key=eq.${room}`},p=>{
-        if(!messages.some(m=>m.id===p.new.id)){
-          const stick=nearBottom();messages.push(p.new);
-          if(!stick && p.new.role!==role){unread++;showUnread()}
-          render();
-        }
+        if(generation===connectionGeneration)mergeMessages([p.new]);
       })
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"message_reactions",filter:"room_key=eq."+room},p=>{
         if(!reactions.some(x=>x.id===p.new.id))reactions.push(p.new);
@@ -764,26 +861,50 @@ async function connect(){
       .on("broadcast",{event:"typing"},({payload})=>{if(payload?.active)noteTyping(payload.role)})
       .on("presence",{event:"sync"},syncPresence)
       .subscribe(async status=>{
-        const on=status==="SUBSCRIBED";$("#connDot").classList.toggle("on",on);$("#connText").textContent=on?"实时在线":"连接中";
-        if(on)await trackPresence();
+        if(generation!==connectionGeneration)return;
+        const on=status==="SUBSCRIBED";$("#connDot").classList.toggle("on",on);
+        $("#connText").textContent=on?"实时在线":["CHANNEL_ERROR","TIMED_OUT","CLOSED"].includes(status)?"实时连接中断":"连接中";
+        if(on){await trackPresence();await syncMessages()}
       });
   }catch(e){
+    if(generation!==connectionGeneration)return;
     console.error(e);$("#connDot").classList.remove("on");$("#connText").textContent="连接失败";toast("连接失败：请检查 Supabase 配置，并执行升级 SQL");
   }
 }
 
 async function send(){
-  const body=$("#input").value.trim();if(!body)return;
-  const r=RI[role];
-  const finalBody=replyTo?`↩ 回复 ${replyTo.author||RI[replyTo.role]?.name||"消息"}\n> ${String(replyTo.body||"").replace(/\n/g," ").slice(0,260)}\n\n${body}`:body;
+  if(sending||observer)return;
+  const input=$("#input"),body=input.value.trim();if(!body)return;
+  const capturedReply=replyTo,r=RI[role],client=sb;
+  const finalBody=capturedReply?`↩ 回复 ${capturedReply.author||RI[capturedReply.role]?.name||"消息"}\n> ${String(capturedReply.body||"").replace(/\n/g," ").slice(0,260)}\n\n${body}`:body;
+  if(finalBody.length>12000){toast("正文和引用合计不能超过12000字，请缩短后发送");return}
   const row={room_key:room,author:r.name,role,kind:composeKind,body:finalBody,created_at:new Date().toISOString()};
-  $("#input").value="";replyTo=null;$("#replyBar").hidden=true;broadcastTyping(false);
-  if(demo||!sb){
-    row.id=`local-${Date.now()}-${Math.random()}`;messages.push(row);
-    localStorage.setItem(`guizang.room.messages.${room}`,JSON.stringify(messages.slice(-1500)));render();toast("本机模式：配置 Supabase 后三方可实时同步");return;
-  }
-  const {error}=await sb.from("messages").insert({room_key:room,author:row.author,role:row.role,kind:row.kind,body:row.body});
-  if(error){console.error(error);$("#input").value=body;toast("发送失败；如果是旧数据库，请在设置里重新执行升级 SQL")}
+  sending=true;$("#send").disabled=true;input.readOnly=true;
+  $("#sendStatus").textContent="正在发送…";
+  try{
+    if(demo||!client){
+      row.id=`local-${crypto.randomUUID()}`;
+      const next=[...messages,row];
+      localStorage.setItem(`guizang.room.messages.${room}`,JSON.stringify(next.slice(-1500)));
+      mergeMessages([row],{notify:false});
+      $("#sendStatus").textContent="仅保存在本机，其他成员不可见";
+    }else{
+      const {data,error}=await client.from("messages").insert({room_key:room,author:row.author,role:row.role,kind:row.kind,body:row.body}).select().single().abortSignal(AbortSignal.timeout(20000));
+      if(error)throw error;
+      if(!data?.id)throw new Error("未取得服务器消息回执");
+      if(client!==sb)throw new Error("连接发生变化，请核对原房间消息");
+      mergeMessages([data],{notify:false});
+      $("#sendStatus").textContent="已发送 · 未确认对方已读";
+    }
+    if(input.value.trim()===body)input.value="";
+    if(replyTo===capturedReply){replyTo=null;$("#replyBar").hidden=true}
+    broadcastTyping(false);
+  }catch(e){
+    console.warn("发送未确认",e);
+    $("#sendStatus").textContent="发送未确认，内容已保留；先核对消息再重试";
+    toast("未确认发送结果，未自动重发");
+    await syncMessages();
+  }finally{sending=false;$("#send").disabled=false;input.readOnly=false}
 }
 
 function inviteUrl(asRole){
@@ -798,7 +919,7 @@ $$(".channel,.tab").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.
 $$(".role-switch button").forEach(b=>b.addEventListener("click",()=>setRole(b.dataset.role)));
 $$(".kind-btn[data-kind]").forEach(b=>b.addEventListener("click",()=>setComposeKind(b.dataset.kind)));
 $("#send").onclick=send;
-$("#input").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});
+$("#input").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing&&e.keyCode!==229){e.preventDefault();send()}});
 $("#input").addEventListener("input",()=>{broadcastTyping(true);clearTimeout(typingStopTimer);typingStopTimer=setTimeout(()=>broadcastTyping(false),1300)});
 $("#atMuse").onclick=()=>{$("#input").value+=($("#input").value?" ":"")+"@Muse ";$("#input").focus()};
 $("#atDots").onclick=()=>{$("#input").value+=($("#input").value?" ":"")+"@Dots ";$("#input").focus()};
@@ -887,6 +1008,8 @@ document.addEventListener("keydown",e=>{
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="j"){e.preventDefault();openTasks()}
 });
 
+setInterval(()=>{void syncMessages()},30000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)void syncMessages()});
 setRole(role);applyMeta();setView("chat");connect();
 </script>
 </body>
