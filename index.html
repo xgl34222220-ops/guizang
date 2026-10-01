@@ -503,8 +503,8 @@ function setRole(r){
 
 function setView(v){
   view=v;
-  $(".channel,.tab").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
-  $("[data-mobile-view]").forEach(b=>b.classList.toggle("on",b.dataset.mobileView===v));
+  $$(".channel,.tab").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
+  $$("[data-mobile-view]").forEach(b=>b.classList.toggle("on",b.dataset.mobileView===v));
   const map={
     chat:["自由聊天","想聊什么都可以，不需要绑定 GitHub 项目。"],
     project:["项目协作",cfg.repo?`围绕 ${repoShort(cfg.repo)} 自主分析、讨论和收敛方案。`:"可以先讨论方案，GitHub 项目稍后再绑定。"],
@@ -858,7 +858,7 @@ $("#searchBtn").onclick=()=>{qd.showModal();$("#searchInput").value="";runSearch
 $("#closeSearch").onclick=()=>qd.close();$("#searchInput").addEventListener("input",runSearch);
 $("#searchResults").addEventListener("click",e=>{const b=e.target.closest("[data-hit-id]");if(!b)return;qd.close();unread=0;showUnread();setView("all");requestAnimationFrame(()=>document.querySelector(`[data-msg-id="${CSS.escape(b.dataset.hitId)}"]`)?.scrollIntoView({behavior:"smooth",block:"center"}))});
 
-$("[data-mobile-view]").forEach(b=>b.onclick=()=>setView(b.dataset.mobileView));
+$$("[data-mobile-view]").forEach(b=>b.onclick=()=>setView(b.dataset.mobileView));
 $("#mobileSettings").onclick=()=>openSettings();
 applyObserver();
 
