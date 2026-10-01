@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f4f5f7">
 <title>归藏共享聊天室</title>
+<script>(function(){try{var c=localStorage.getItem("guizang.appearance")||"system";if(!["system","light","dark"].includes(c))c="system";var t=c==="system"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):c;document.documentElement.dataset.appTheme=t;document.documentElement.style.colorScheme=t;}catch(e){}})();</script>
 <style>
 :root{
   --bg:#f2f3f6;--glass:rgba(255,255,255,.70);--glass2:rgba(255,255,255,.86);
@@ -162,25 +163,27 @@ details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
   .mobile-nav button{flex:1;height:41px;border:0;border-radius:13px;background:transparent;color:var(--muted);font-size:10px;font-weight:740}.mobile-nav button.on{background:rgba(23,24,28,.075);color:var(--text)}
   .jump-new{bottom:96px;right:13px}
 }
-@media(prefers-color-scheme:dark){
-  :root{--bg:#15171a;--glass:rgba(31,33,38,.72);--glass2:rgba(39,41,47,.88);--text:#f5f5f6;--muted:#9a9ea7;--soft:#767b85;--line:rgba(255,255,255,.07);--shadow:0 18px 55px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.06);--shadow2:0 8px 28px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.05)}
-  body{background:radial-gradient(circle at 7% -8%,rgba(117,87,255,.16),transparent 28%),radial-gradient(circle at 100% 5%,rgba(18,166,115,.12),transparent 25%),var(--bg)}
-  .btn,.project-card,.channel.active,.person,.metric,.feed-item,.step{background:rgba(255,255,255,.07)}
-  .channel:hover{background:rgba(255,255,255,.055)}
-  .role-switch button{background:rgba(255,255,255,.06)}
-  .role-switch button.on,.btn.dark,.send{background:#f1f1f2;color:#17181c}
-  .project-actions .mini,.ico,.tab.active,.kind-btn.on,.kind{background:rgba(255,255,255,.07)}
-  .bubble{background:rgba(255,255,255,.075);color:#e8e9eb}.mine .bubble{background:#f1f1f2;color:#17181c}
-  .msg.project:not(.mine) .bubble{background:rgba(71,108,255,.14)}
-  .msg.proposal:not(.mine) .bubble{background:rgba(122,92,246,.14)}
-  .msg.decision:not(.mine) .bubble{background:rgba(20,160,111,.14)}
-  .msg.todo:not(.mine) .bubble{background:rgba(182,106,20,.14)}
-  .composer{background:rgba(255,255,255,.075)}
-  .field input,.field textarea{background:#22252a}.modal{background:rgba(27,29,34,.96)}
-  .avatar .presence{border-color:#22252a}
-  .search-hit{background:#22252a;color:#f0f1f3}.search-hit span{color:#a3a7af}
-  .mobile-nav{background:rgba(31,33,38,.84);border-color:rgba(255,255,255,.06)}.mobile-nav button.on{background:rgba(255,255,255,.08)}
-}
+:root[data-app-theme="dark"]{--bg:#15171a;--glass:rgba(31,33,38,.72);--glass2:rgba(39,41,47,.88);--text:#f5f5f6;--muted:#9a9ea7;--soft:#767b85;--line:rgba(255,255,255,.07);--shadow:0 18px 55px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.06);--shadow2:0 8px 28px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.05)}
+:root[data-app-theme="dark"] body{background:radial-gradient(circle at 7% -8%,rgba(117,87,255,.16),transparent 28%),radial-gradient(circle at 100% 5%,rgba(18,166,115,.12),transparent 25%),var(--bg)}
+:root[data-app-theme="dark"] .btn,:root[data-app-theme="dark"] .project-card,:root[data-app-theme="dark"] .channel.active,:root[data-app-theme="dark"] .person,:root[data-app-theme="dark"] .metric,:root[data-app-theme="dark"] .feed-item,:root[data-app-theme="dark"] .step{background:rgba(255,255,255,.07)}
+:root[data-app-theme="dark"] .channel:hover{background:rgba(255,255,255,.055)}
+:root[data-app-theme="dark"] .role-switch button{background:rgba(255,255,255,.06)}
+:root[data-app-theme="dark"] .role-switch button.on,:root[data-app-theme="dark"] .btn.dark,:root[data-app-theme="dark"] .send{background:#f1f1f2;color:#17181c}
+:root[data-app-theme="dark"] .project-actions .mini,:root[data-app-theme="dark"] .ico,:root[data-app-theme="dark"] .tab.active,:root[data-app-theme="dark"] .kind-btn.on,:root[data-app-theme="dark"] .kind{background:rgba(255,255,255,.07)}
+:root[data-app-theme="dark"] .bubble{background:rgba(255,255,255,.075);color:#e8e9eb}
+:root[data-app-theme="dark"] .mine .bubble{background:#f1f1f2;color:#17181c}
+:root[data-app-theme="dark"] .msg.project:not(.mine) .bubble{background:rgba(71,108,255,.14)}
+:root[data-app-theme="dark"] .msg.proposal:not(.mine) .bubble{background:rgba(122,92,246,.14)}
+:root[data-app-theme="dark"] .msg.decision:not(.mine) .bubble{background:rgba(20,160,111,.14)}
+:root[data-app-theme="dark"] .msg.todo:not(.mine) .bubble{background:rgba(182,106,20,.14)}
+:root[data-app-theme="dark"] .composer{background:rgba(255,255,255,.075)}
+:root[data-app-theme="dark"] .field input,:root[data-app-theme="dark"] .field textarea{background:#22252a}
+:root[data-app-theme="dark"] .modal{background:rgba(27,29,34,.96)}
+:root[data-app-theme="dark"] .avatar .presence{border-color:#22252a}
+:root[data-app-theme="dark"] .search-hit{background:#22252a;color:#f0f1f3}
+:root[data-app-theme="dark"] .search-hit span{color:#a3a7af}
+:root[data-app-theme="dark"] .mobile-nav{background:rgba(31,33,38,.84);border-color:rgba(255,255,255,.06)}
+:root[data-app-theme="dark"] .mobile-nav button.on{background:rgba(255,255,255,.08)}
 .reaction-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;min-height:2px}
 .reaction{border:0;border-radius:999px;padding:3px 7px;background:rgba(23,24,28,.045);color:var(--muted);font-size:10px}
 .reaction:hover,.reaction.mine{background:rgba(117,87,255,.11);color:var(--text)}
@@ -212,7 +215,9 @@ details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
 .pin-card p{font-size:11px;line-height:1.55;white-space:pre-wrap;margin:7px 0;color:var(--text)}
 .pin-card>div:last-child{display:flex;gap:6px}
 @media(max-width:760px){.task-board{grid-template-columns:1fr}.task-col{padding:7px}.task-create-row{grid-template-columns:1fr 1fr}.msg-actions{opacity:1}.reaction-row{max-width:100%}}
-@media(prefers-color-scheme:dark){.field select{background:#22252a}.task-mini,.task-card{background:rgba(255,255,255,.07)}.task-col,.pin-card{background:rgba(255,255,255,.045)}}
+:root[data-app-theme="dark"] .field select{background:#22252a}
+:root[data-app-theme="dark"] .task-mini,:root[data-app-theme="dark"] .task-card{background:rgba(255,255,255,.07)}
+:root[data-app-theme="dark"] .task-col,:root[data-app-theme="dark"] .pin-card{background:rgba(255,255,255,.045)}
 
 .mentioned .bubble{box-shadow:0 0 0 2px rgba(117,87,255,.30),0 5px 18px rgba(20,27,40,.055)}
 .mention-label{color:#7254dd;font-weight:700}
@@ -264,7 +269,23 @@ dialog,.modal{background:var(--glass);backdrop-filter:none;-webkit-backdrop-filt
 .autonomy{color:var(--muted);background:rgba(44,102,132,.055)}.autonomy b{color:var(--text)}
 @media(max-width:760px){.messages{padding:16px 10px 12px}.bubble-wrap{max-width:88%}.bubble{font-size:15px;line-height:1.7;padding:11px 13px}.composer-wrap{padding:8px 8px 10px}.composer textarea{font-size:16px}.msg-actions{opacity:1}.brand b{font-size:15px}}
 @media(hover:none){.msg-actions{opacity:1}.msg-actions button{min-height:36px}}
-@media(prefers-color-scheme:dark){:root{--bg:#121418;--glass:#1B1E24;--glass2:#22262D;--text:#E6E9EE;--muted:#ADB4C0;--soft:#929BAA;--line:rgba(255,255,255,.08)}body{background:var(--bg)}.topbar{background:rgba(27,30,36,.90)}.room .msg.role-owner .bubble{background:#E6E9EE;color:#1F2531}.room .msg.role-muse .bubble{background:#262333;color:#E8E1F5;box-shadow:inset 0 0 0 1px rgba(212,195,255,.13)}.room .msg.role-dots .bubble{background:#1C2D26;color:#DCEFE4;box-shadow:inset 0 0 0 1px rgba(174,228,199,.13)}.room .role-owner .bubble a{color:#315AA0}.room .role-muse .bubble a,.room .role-dots .bubble a{color:#AAC5FF}.composer{background:#1D2128;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}.replybar{background:#282334;color:#C8BEDD}.replybar b{color:var(--text)}.proposal .kind{color:#E8BC70;background:#352C1D}.decision .kind{color:#9ACCE8;background:#1F303C}.todo .kind{color:#F0A495;background:#392621}.send{background:#E6E9EE;color:#1F2531}.mobile-nav{background:#1B1E24}.logo{background:#E6E9EE;color:#1F2531}}
+:root[data-app-theme="dark"]{--bg:#121418;--glass:#1B1E24;--glass2:#22262D;--text:#E6E9EE;--muted:#ADB4C0;--soft:#929BAA;--line:rgba(255,255,255,.08)}
+:root[data-app-theme="dark"] body{background:var(--bg)}
+:root[data-app-theme="dark"] .topbar{background:rgba(27,30,36,.90)}
+:root[data-app-theme="dark"] .room .msg.role-owner .bubble{background:#E6E9EE;color:#1F2531}
+:root[data-app-theme="dark"] .room .msg.role-muse .bubble{background:#262333;color:#E8E1F5;box-shadow:inset 0 0 0 1px rgba(212,195,255,.13)}
+:root[data-app-theme="dark"] .room .msg.role-dots .bubble{background:#1C2D26;color:#DCEFE4;box-shadow:inset 0 0 0 1px rgba(174,228,199,.13)}
+:root[data-app-theme="dark"] .room .role-owner .bubble a{color:#315AA0}
+:root[data-app-theme="dark"] .room .role-muse .bubble a,:root[data-app-theme="dark"] .room .role-dots .bubble a{color:#AAC5FF}
+:root[data-app-theme="dark"] .composer{background:#1D2128;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+:root[data-app-theme="dark"] .replybar{background:#282334;color:#C8BEDD}
+:root[data-app-theme="dark"] .replybar b{color:var(--text)}
+:root[data-app-theme="dark"] .proposal .kind{color:#E8BC70;background:#352C1D}
+:root[data-app-theme="dark"] .decision .kind{color:#9ACCE8;background:#1F303C}
+:root[data-app-theme="dark"] .todo .kind{color:#F0A495;background:#392621}
+:root[data-app-theme="dark"] .send{background:#E6E9EE;color:#1F2531}
+:root[data-app-theme="dark"] .mobile-nav{background:#1B1E24}
+:root[data-app-theme="dark"] .logo{background:#E6E9EE;color:#1F2531}
 
 
 /* Mobile connection state stays visible; members are accessible without the sidebar. */
@@ -420,6 +441,8 @@ dialog,.modal{background:var(--glass);backdrop-filter:none;-webkit-backdrop-filt
 <dialog id="settingsDlg">
 <div class="modal">
   <h2>房间设置</h2>
+  <div class="field"><label for="appearanceMode">外观 · 仅此浏览器，即时生效</label><select id="appearanceMode"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></div>
+
   <p>实时聊天服务已经配置完成。GitHub 项目是可选的；不填仓库时，这里就是你、Muse 和 Dots 的自由聊天室。</p>
   <div class="field"><label>房间名称</label><input id="setRoomTitle" placeholder="例如：归藏共享聊天室"></div>
   <div class="field"><label>GitHub 仓库地址（可选）</label><input id="setRepo" placeholder="https://github.com/owner/repo"></div>
@@ -655,6 +678,7 @@ function setRole(r){
 }
 
 function setView(v){
+  messageNavigation++;
   view=v;
   $$(".channel,.tab").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
   $$("[data-mobile-view]").forEach(b=>b.classList.toggle("on",b.dataset.mobileView===v));
@@ -798,7 +822,7 @@ function renderTaskBoard(){
     const status=pair[0],label=pair[1],rows=tasks.filter(t=>t.status===status);
     const cards=rows.length?rows.map(t=>{
       const detail=t.detail?'<div class="task-card-detail">'+esc(t.detail)+'</div>':"";
-      let buttons="";
+      let buttons=t.source_message_id==null?"":'<button data-jump-message="'+esc(String(t.source_message_id))+'">查看原消息</button>';
       if(status!=="todo")buttons+='<button data-task-status="'+t.id+':todo">待处理</button>';
       if(status!=="doing")buttons+='<button data-task-status="'+t.id+':doing">进行中</button>';
       if(status!=="done")buttons+='<button data-task-status="'+t.id+':done">完成</button>';
@@ -813,6 +837,33 @@ function renderPinsList(){
   const rows=pins.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).map(p=>({p,m:messages.find(m=>String(m.id)===String(p.message_id))})).filter(x=>x.m);
   box.innerHTML=rows.length?rows.map(x=>{const p=x.p,m=x.m;return '<div class="pin-card"><div><b>'+esc(m.author||RI[m.role]?.name||m.role)+'</b><span>'+fmt(m.created_at)+'</span></div><p>'+esc(m.body)+'</p><div><button class="mini" data-jump-message="'+esc(String(m.id))+'">定位消息</button><button class="mini" data-unpin="'+p.id+'">取消置顶</button></div></div>'}).join(""):'<div class="offline-note">还没有置顶消息。</div>';
 }
+// MESSAGE_NAV_BEGIN
+async function jumpToMessage(rawId){
+  const request=++messageNavigation,client=sb,generation=connectionGeneration;
+  const initialView=view;
+  let id;
+  try{id=highestMessageId([{id:rawId}])}catch{toast("原消息编号无法确认");return}
+  const current=()=>request===messageNavigation&&client===sb&&generation===connectionGeneration&&view===initialView;
+  let target=messages.find(m=>String(m.id)===id&&m.room_key===room);
+  if(!target){
+    if(!client||demo){toast("当前没有这条原消息");return}
+    try{
+      const {data,error}=await client.from("messages").select("*").eq("room_key",room).eq("id",id).maybeSingle().abortSignal(AbortSignal.timeout(15000));
+      if(!current())return;
+      if(error)throw error;
+      if(!data||data.room_key!==room||String(data.id)!==id){toast("原消息不存在或不可访问");return}
+      mergeMessages([data],{notify:false});target=data;
+    }catch(e){if(current())toast("原消息加载未完成，请稍后重试");return}
+  }
+  if(!current())return;
+  if(pnd.open)pnd.close();if(td.open)td.close();setView("all");
+  const navigation=messageNavigation;
+  requestAnimationFrame(()=>{
+    if(navigation!==messageNavigation||client!==sb||generation!==connectionGeneration)return;
+    document.querySelector('[data-msg-id="'+CSS.escape(id)+'"]')?.scrollIntoView({behavior:"smooth",block:"center"});
+  });
+}
+// MESSAGE_NAV_END
 function openTaskFromMessage(id){
   const m=messages.find(x=>String(x.id)===String(id));if(!m)return;
   const plain=(m.body||"").replace(/^↩[\s\S]*?\n\n/,"").trim();
@@ -1144,13 +1195,14 @@ function openTasks(){renderTaskBoard();td.showModal()}
 function openPins(){renderPinsList();pnd.showModal()}
 $("#tasksBtn").onclick=openTasks;$("#mobileTasks").onclick=openTasks;$("#openTasksSide").onclick=openTasks;
 $("#pinsBtn").onclick=openPins;$("#openPinsSide").onclick=openPins;
-$("#closeTasks").onclick=()=>td.close();$("#closePins").onclick=()=>pnd.close();$("#createTaskBtn").onclick=createTask;
+td.addEventListener("cancel",()=>{messageNavigation++});pnd.addEventListener("cancel",()=>{messageNavigation++});
+$("#closeTasks").onclick=()=>{messageNavigation++;td.close()};$("#closePins").onclick=()=>{messageNavigation++;pnd.close()};$("#createTaskBtn").onclick=createTask;
 $("#taskBoard").addEventListener("click",async e=>{
   const st=e.target.closest("[data-task-status]");if(st){const parts=st.dataset.taskStatus.split(":");await setTaskStatus(parts[0],parts[1]);return}
   const del=e.target.closest("[data-task-delete]");if(del){await deleteTask(del.dataset.taskDelete);return}
 });
 document.addEventListener("click",async e=>{
-  const jump=e.target.closest("[data-jump-message]");if(jump){if(pnd.open)pnd.close();if(td.open)td.close();setView("all");requestAnimationFrame(()=>document.querySelector('[data-msg-id="'+CSS.escape(jump.dataset.jumpMessage)+'"]')?.scrollIntoView({behavior:"smooth",block:"center"}));return}
+  const jump=e.target.closest("[data-jump-message]");if(jump){await jumpToMessage(jump.dataset.jumpMessage);return}
   const unpin=e.target.closest("[data-unpin]");if(unpin&&sb){const {error}=await sb.from("pinned_messages").delete().eq("id",Number(unpin.dataset.unpin));if(error)toast("取消置顶失败");return}
   const open=e.target.closest("[data-open-task]");if(open){openTasks();return}
 });
@@ -1185,6 +1237,26 @@ $("#searchResults").addEventListener("click",e=>{const b=e.target.closest("[data
 $$("[data-mobile-view]").forEach(b=>b.onclick=()=>setView(b.dataset.mobileView));
 $("#mobileSettings").onclick=()=>openSettings();
 applyObserver();
+
+// APPEARANCE_BEGIN
+const appearanceMedia=window.matchMedia("(prefers-color-scheme: dark)");
+let appearanceChoice="system";
+try{const saved=localStorage.getItem("guizang.appearance");if(["system","light","dark"].includes(saved))appearanceChoice=saved}catch{}
+function applyAppearance(choice,{persist=false}={}){
+  if(!["system","light","dark"].includes(choice))return false;
+  appearanceChoice=choice;
+  const resolved=choice==="system"?(appearanceMedia.matches?"dark":"light"):choice;
+  document.documentElement.dataset.appTheme=resolved;
+  document.documentElement.style.colorScheme=resolved;
+  const control=document.querySelector("#appearanceMode");if(control)control.value=choice;
+  if(persist)try{localStorage.setItem("guizang.appearance",choice)}catch{}
+  return true;
+}
+const systemAppearanceChanged=()=>{if(appearanceChoice==="system")applyAppearance("system")};
+if(appearanceMedia.addEventListener)appearanceMedia.addEventListener("change",systemAppearanceChanged);else appearanceMedia.addListener(systemAppearanceChanged);
+document.querySelector("#appearanceMode").addEventListener("change",e=>applyAppearance(e.target.value,{persist:true}));
+applyAppearance(appearanceChoice);
+// APPEARANCE_END
 
 const sd=$("#settingsDlg");
 function openSettings(){
