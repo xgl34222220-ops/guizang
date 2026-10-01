@@ -213,6 +213,23 @@ details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
 .pin-card>div:last-child{display:flex;gap:6px}
 @media(max-width:760px){.task-board{grid-template-columns:1fr}.task-col{padding:7px}.task-create-row{grid-template-columns:1fr 1fr}.msg-actions{opacity:1}.reaction-row{max-width:100%}}
 @media(prefers-color-scheme:dark){.field select{background:#22252a}.task-mini,.task-card{background:rgba(255,255,255,.07)}.task-col,.pin-card{background:rgba(255,255,255,.045)}}
+
+.mentioned .bubble{box-shadow:0 0 0 2px rgba(117,87,255,.30),0 5px 18px rgba(20,27,40,.055)}
+.mention-label{color:#7254dd;font-weight:700}
+[data-unread]:not([data-unread=""])::after{content:attr(data-unread);background:#7254dd;color:white;font-size:10px;min-width:17px;padding:2px 5px;border-radius:20px;margin-left:5px}
+.msg:focus-within .msg-actions{opacity:1}.msg-actions{flex-wrap:wrap}
+button:focus-visible,a:focus-visible{outline:2px solid #7557ff;outline-offset:3px}
+@media(max-width:760px){
+  .shell{padding-top:max(6px,env(safe-area-inset-top))}
+  .room{height:calc(100dvh - 124px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}
+  .composer textarea,.field input,.field textarea{font-size:16px}
+  .compose-foot{align-items:flex-end}#sendStatus{max-width:calc(100% - 50px)}
+  .msg-actions{opacity:1}.msg-actions button{min-height:32px;padding:5px 7px;font-size:11px}
+  dialog{width:calc(100% - 16px);max-height:calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));border-radius:20px}
+  .modal{padding:16px;padding-bottom:max(16px,env(safe-area-inset-bottom))}
+  .modal-actions{position:sticky;bottom:0;background:var(--bg);padding-top:10px}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
@@ -450,7 +467,8 @@ localStorage.setItem("guizang.room.cfg",JSON.stringify(cfg));
 const fixedRole=["owner","muse","dots"].includes(qs.get("as"))?qs.get("as"):null;
 let role=fixedRole||localStorage.getItem("guizang.room.role")||"owner";
 let view="chat", composeKind="chat", sb=null, channel=null, messages=[], reactions=[], pins=[], tasks=[], demo=true;
-let sending=false, syncBusy=false, connectionGeneration=0;
+let sending=false, syncBusy=false, connectionGeneration=0, taskSaving=false;
+const unreadMessages=new Set();
 let observer=localStorage.getItem("guizang.room.observer")==="1", replyTo=null, unread=0, typingPeers={};
 const sessionId=sessionStorage.getItem("guizang.presence")||crypto.randomUUID();
 sessionStorage.setItem("guizang.presence",sessionId);
@@ -531,12 +549,19 @@ function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt
 function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),1700)}
 function repoShort(u=""){try{const p=new URL(u).pathname.replace(/^\/|\.git$/g,"").split("/");return p.slice(0,2).join("/")||"未绑定 GitHub 项目"}catch{return u||"未绑定 GitHub 项目"}}
 function fmt(t){return new Date(t).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}
+function mentionsMe(body=""){
+  const name=role==="owner"?"(?:owner|我)":role==="muse"?"Muse":"Dots";
+  return new RegExp("(^|[\\s，。,:：])@"+name+"(?=$|[\\s，。！？,:：])","iu").test(body);
+}
 function rich(s=""){
   let x=esc(s), blocks=[];
   x=x.replace(/```([\s\S]*?)```/g,(_,code)=>{const i=blocks.push(`<pre><code>${code.trim()}</code></pre>`)-1;return `@@BLOCK${i}@@`});
   x=x.replace(/`([^`\n]+)`/g,"<code>$1</code>");
   x=x.replace(/(^|\n)&gt;\s?([^\n]+)/g,'$1<blockquote>$2</blockquote>');
-  x=x.replace(/\b(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+  x=x.replace(/\b(https?:\/\/[^\s<>`，。；！？（）【】]+)/g,(_,url)=>{
+    const tail=url.match(/[.,;!?]+$/)?.[0]||"";const clean=tail?url.slice(0,-tail.length):url;
+    return `<a href="${clean}" target="_blank" rel="noopener noreferrer">${clean}</a>${tail}`;
+  });
   x=x.replace(/\n/g,"<br>");
   x=x.replace(/@@BLOCK(\d+)@@/g,(_,i)=>blocks[Number(i)]||"");
   return x;
@@ -590,7 +615,7 @@ function setView(v){
   if(v==="chat")setComposeKind("chat");
   else if(v==="project")setComposeKind("project");
   else if(["proposal","decision","todo"].includes(v))setComposeKind(v);
-  render();
+  render();showUnread();
 }
 
 function setComposeKind(k){
@@ -633,10 +658,10 @@ function render(){
   }else{
     box.innerHTML=list.map(m=>{
       const r=RI[m.role]||RI.owner, mine=m.role===role, k=normalizedKind(m.kind);
-      return `<article class="msg ${k} ${mine?"mine":""}" data-msg-id="${esc(String(m.id??""))}">
+      return `<article class="msg ${k} ${mine?"mine":""} ${!mine&&mentionsMe(m.body)?"mentioned":""}" data-msg-id="${esc(String(m.id??""))}">
         <div class="avatar ${r.cls}">${r.letter}</div>
         <div class="bubble-wrap">
-          <div class="msg-meta"><span class="author">${esc(m.author||r.name)}</span><span class="kind">${esc(KL[m.kind]||KL[k]||"消息")}</span><span>${fmt(m.created_at)}</span></div>
+          <div class="msg-meta"><span class="author">${esc(m.author||r.name)}</span><span class="kind">${esc(KL[m.kind]||KL[k]||"消息")}</span><span title="${esc(new Date(m.created_at).toLocaleString())}">${fmt(m.created_at)}</span>${!mine&&mentionsMe(m.body)?'<span class="mention-label">提到你</span>':""}</div>
           <div class="bubble">${rich(m.body)}</div>
           <div class="reaction-row">${renderReactions(m.id)}</div>
           <div class="msg-actions"><button data-reply-id="${esc(String(m.id??""))}">回复</button><button data-copy="${encodeURIComponent(m.body)}">复制</button><button data-react-id="${esc(String(m.id??""))}" data-emoji="👍">👍</button><button data-react-id="${esc(String(m.id??""))}" data-emoji="💡">💡</button><button data-react-id="${esc(String(m.id??""))}" data-emoji="✅">✅</button><button data-pin-id="${esc(String(m.id??""))}">${isPinned(m.id)?"取消置顶":"置顶"}</button><button data-task-id="${esc(String(m.id??""))}">转任务</button></div>
@@ -739,22 +764,51 @@ function openTaskFromMessage(id){
   $("#taskAssignee").value="all";$("#taskStatus").value="todo";$("#taskSourceMessage").value=id;$("#tasksDlg").showModal();
 }
 async function createTask(){
+  if(taskSaving)return;
   const title=$("#taskTitle").value.trim(),detail=$("#taskDetail").value.trim();if(!title){toast("先写任务标题");return}
   if(demo||!sb){toast("实时模式下才能同步任务");return}
   const source=$("#taskSourceMessage").value;
-  const {error}=await sb.from("tasks").insert({room_key:room,title,detail,status:$("#taskStatus").value,assignee:$("#taskAssignee").value,created_by:role,source_message_id:source?Number(source):null});
-  if(error){console.error(error);toast("创建任务失败");return}
-  $("#taskTitle").value="";$("#taskDetail").value="";$("#taskSourceMessage").value="";toast("任务已添加");
+  taskSaving=true;$("#createTaskBtn").disabled=true;
+  try{
+    const {data,error}=await sb.from("tasks").insert({room_key:room,title,detail,status:$("#taskStatus").value,assignee:$("#taskAssignee").value,created_by:role,source_message_id:source?Number(source):null}).select().single().abortSignal(AbortSignal.timeout(20000));
+    if(error||!data?.id)throw error||new Error("no receipt");
+    if(!tasks.some(t=>String(t.id)===String(data.id)))tasks.unshift(data);
+    renderCollaboration();
+    if($("#taskTitle").value.trim()===title&&$("#taskDetail").value.trim()===detail){$("#taskTitle").value="";$("#taskDetail").value="";$("#taskSourceMessage").value=""}
+    toast("任务已添加");
+  }catch(e){console.warn(e);toast("任务保存未确认，内容保留；请核对任务板后再重试")}
+  finally{taskSaving=false;$("#createTaskBtn").disabled=false}
 }
-async function setTaskStatus(id,status){if(!sb)return;const {error}=await sb.from("tasks").update({status,updated_at:new Date().toISOString()}).eq("id",Number(id));if(error)toast("更新任务失败")}
-async function deleteTask(id){if(!sb)return;const {error}=await sb.from("tasks").delete().eq("id",Number(id));if(error)toast("删除任务失败");else toast("任务已删除")}
+async function setTaskStatus(id,status){
+  if(!sb||!["todo","doing","done"].includes(status))return;
+  try{
+    const {data,error}=await sb.from("tasks").update({status,updated_at:new Date().toISOString()}).eq("room_key",room).eq("id",Number(id)).select().single();
+    if(error||!data)throw error||new Error("missing task");
+    tasks=tasks.map(t=>String(t.id)===String(id)?data:t);renderCollaboration();
+  }catch(e){toast("任务状态未确认，请核对后再试")}
+}
+async function deleteTask(id){
+  if(!sb)return;
+  const task=tasks.find(t=>String(t.id)===String(id));if(!task)return;
+  if(!confirm(`永久删除任务“${task.title}”？此操作无法撤销，聊天原消息会保留。`))return;
+  try{
+    const {data,error}=await sb.from("tasks").delete().eq("room_key",room).eq("id",Number(id)).select("id");
+    if(error||!data?.length)throw error||new Error("missing task");
+    tasks=tasks.filter(t=>String(t.id)!==String(id));renderCollaboration();toast("任务已删除");
+  }catch(e){toast("删除未确认，请核对任务板；未自动重试")}
+}
 async function loadCollaborationData(){
+  const client=sb,generation=connectionGeneration;
   const results=await Promise.all([
-    sb.from("message_reactions").select("*").eq("room_key",room).order("created_at",{ascending:true}),
-    sb.from("pinned_messages").select("*").eq("room_key",room).order("created_at",{ascending:true}),
-    sb.from("tasks").select("*").eq("room_key",room).order("updated_at",{ascending:false})
+    client.from("message_reactions").select("*").eq("room_key",room).order("created_at",{ascending:true}),
+    client.from("pinned_messages").select("*").eq("room_key",room).order("created_at",{ascending:true}),
+    client.from("tasks").select("*").eq("room_key",room).order("updated_at",{ascending:false})
   ]);
-  reactions=results[0].data||[];pins=results[1].data||[];tasks=results[2].data||[];
+  if(client!==sb||generation!==connectionGeneration)return;
+  if(!results[0].error)reactions=results[0].data||[];
+  if(!results[1].error)pins=results[1].data||[];
+  if(!results[2].error)tasks=results[2].data||[];
+  if(results.some(r=>r.error))toast("部分协作数据未同步，保留上次结果");
 }
 
 async function trackPresence(){
@@ -781,9 +835,21 @@ function broadcastTyping(active=true){
   channel.send({type:"broadcast",event:"typing",payload:{role,active,at:now}}).catch(()=>{});
 }
 function nearBottom(){const b=$("#messages");return b.scrollHeight-b.scrollTop-b.clientHeight<120}
-function showUnread(){if(unread>0){$("#jumpNew").hidden=false;$("#jumpNew").textContent=`${unread} 条新消息 ↓`}else $("#jumpNew").hidden=true}
-$("#jumpNew").onclick=()=>{unread=0;showUnread();setView("all");const b=$("#messages");b.scrollTop=b.scrollHeight};
-$("#messages").addEventListener("scroll",()=>{if(view==="all"&&!document.hidden&&nearBottom()&&unread){unread=0;showUnread()}},{passive:true});
+function clearVisibleUnread(){
+  if(document.hidden||!nearBottom())return;
+  for(const m of visibleMessages())unreadMessages.delete(String(m.id));
+  unread=unreadMessages.size;showUnread();
+}
+function showUnread(){
+  document.title=unread?`(${unread}) 归藏共享聊天室`:"归藏共享聊天室";
+  for(const b of $$("[data-view],[data-mobile-view]")){
+    const v=b.dataset.view||b.dataset.mobileView;
+    const count=messages.filter(m=>unreadMessages.has(String(m.id))&&(v==="all"||(v==="chat"?normalizedKind(m.kind)==="chat":v==="project"?isProjectKind(m.kind):normalizedKind(m.kind)===v))).length;
+    b.dataset.unread=count?String(count):"";
+  }
+if(unread>0){$("#jumpNew").hidden=false;$("#jumpNew").textContent=`${unread} 条新消息 ↓`}else $("#jumpNew").hidden=true}
+$("#jumpNew").onclick=()=>{unreadMessages.clear();unread=0;showUnread();setView("all");const b=$("#messages");b.scrollTop=b.scrollHeight};
+$("#messages").addEventListener("scroll",()=>{if(unread)clearVisibleUnread()},{passive:true});
 
 function mergeMessages(rows,{notify=true}={}){
   const known=new Set(messages.map(m=>String(m.id))), stick=nearBottom();
@@ -792,7 +858,8 @@ function mergeMessages(rows,{notify=true}={}){
     if(row.room_key!==room || known.has(String(row.id)))continue;
     known.add(String(row.id));messages.push(row);added++;
     const visible=view==="all" || (view==="chat"?normalizedKind(row.kind)==="chat":view==="project"?isProjectKind(row.kind):normalizedKind(row.kind)===view);
-    if(notify&&row.role!==role&&(!stick||document.hidden||!visible))unread++;
+    if(notify&&row.role!==role&&(!stick||document.hidden||!visible))unreadMessages.add(String(row.id));
+    unread=unreadMessages.size;
   }
   if(added){messages.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at)||String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));showUnread();render()}
   return added;
@@ -957,12 +1024,12 @@ $("#exportBtn").onclick=()=>{
   const lines=[`# ${cfg.title||"归藏共享聊天室"}`,`\n房间：${room}`,cfg.repo?`项目：${cfg.repo}`:"",cfg.objective?`目标：${cfg.objective}`:"","\n---\n"];
   if(tasks.length){
     lines.push("\n## 共享任务\n");
-    tasks.forEach(t=>lines.push(`- [${t.status==="done"?"x":" "}] ${t.title} · ${taskStatusLabel(t.status)} · @${taskAssigneeLabel(t.assignee)}${t.detail?"\\n  "+t.detail.replace(/\\n/g," "):""}`));
+    tasks.forEach(t=>lines.push(`- [${t.status==="done"?"x":" "}] ${t.title} · ${taskStatusLabel(t.status)} · @${taskAssigneeLabel(t.assignee)}${t.detail?"\n  "+t.detail.replace(/\n/g," "):""}`));
     lines.push("\n---\n");
   }
   if(pins.length){
     lines.push("\n## 置顶重点\n");
-    pins.forEach(p=>{const m=messages.find(x=>String(x.id)===String(p.message_id));if(m)lines.push(`- ${m.author||RI[m.role]?.name||m.role}: ${m.body.replace(/\\n/g," ")}`)});
+    pins.forEach(p=>{const m=messages.find(x=>String(x.id)===String(p.message_id));if(m)lines.push(`- ${m.author||RI[m.role]?.name||m.role}: ${m.body.replace(/\n/g," ")}`)});
     lines.push("\n---\n");
   }
   messages.forEach(m=>lines.push(`## ${m.author||RI[m.role]?.name||m.role} · ${KL[m.kind]||m.kind} · ${new Date(m.created_at).toLocaleString()}\n\n${m.body}\n`));
@@ -978,7 +1045,7 @@ function runSearch(){
 }
 $("#searchBtn").onclick=()=>{qd.showModal();$("#searchInput").value="";runSearch();setTimeout(()=>$("#searchInput").focus(),50)};
 $("#closeSearch").onclick=()=>qd.close();$("#searchInput").addEventListener("input",runSearch);
-$("#searchResults").addEventListener("click",e=>{const b=e.target.closest("[data-hit-id]");if(!b)return;qd.close();unread=0;showUnread();setView("all");requestAnimationFrame(()=>document.querySelector(`[data-msg-id="${CSS.escape(b.dataset.hitId)}"]`)?.scrollIntoView({behavior:"smooth",block:"center"}))});
+$("#searchResults").addEventListener("click",e=>{const b=e.target.closest("[data-hit-id]");if(!b)return;qd.close();setView("all");requestAnimationFrame(()=>document.querySelector(`[data-msg-id="${CSS.escape(b.dataset.hitId)}"]`)?.scrollIntoView({behavior:"smooth",block:"center"}))});
 
 $$("[data-mobile-view]").forEach(b=>b.onclick=()=>setView(b.dataset.mobileView));
 $("#mobileSettings").onclick=()=>openSettings();
@@ -1015,3 +1082,4 @@ setRole(role);applyMeta();setView("chat");connect();
 </script>
 </body>
 </html>
+
