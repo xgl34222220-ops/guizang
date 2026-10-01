@@ -180,7 +180,7 @@ details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
   .search-hit{background:#22252a;color:#f0f1f3}.search-hit span{color:#a3a7af}
   .mobile-nav{background:rgba(31,33,38,.84);border-color:rgba(255,255,255,.06)}.mobile-nav button.on{background:rgba(255,255,255,.08)}
 }
-</style>
+.reaction-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px;min-height:2px}\n.reaction{border:0;border-radius:999px;padding:3px 7px;background:rgba(23,24,28,.045);color:var(--muted);font-size:10px}\n.reaction:hover,.reaction.mine{background:rgba(117,87,255,.11);color:var(--text)}\n.reaction span{font-variant-numeric:tabular-nums}\n.wide-mini{width:100%;margin-top:7px}\n.task-summary{display:grid;gap:5px}\n.task-mini{width:100%;border:0;text-align:left;padding:8px 9px;border-radius:12px;background:rgba(255,255,255,.42);color:var(--text)}\n.task-mini b{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.task-mini span{display:block;font-size:9px;color:var(--muted);margin-top:2px}\n.pin-preview{width:100%;border:0;text-align:left;color:inherit;cursor:pointer}\n.task-create{padding:1px 0 12px;border-bottom:1px solid var(--line);margin-bottom:12px}\n.task-create-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}\n.field select{width:100%;border:0;outline:0;background:#f0f1f4;border-radius:13px;padding:10px 11px;font-size:12px;color:var(--text)}\n.task-board{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;align-items:start}\n.task-col{background:rgba(23,24,28,.035);border-radius:16px;padding:8px;min-width:0}\n.task-col-head{display:flex;justify-content:space-between;align-items:center;padding:2px 3px 8px;font-size:11px}\n.task-col-head span{font-size:9px;color:var(--muted)}\n.task-col-list{display:grid;gap:7px}\n.task-card{padding:9px;border-radius:13px;background:rgba(255,255,255,.72);box-shadow:0 5px 16px rgba(20,27,40,.05)}\n.task-card-title{font-size:11px;font-weight:780;line-height:1.45}\n.task-card-detail{font-size:10px;color:var(--muted);line-height:1.5;margin-top:5px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}\n.task-card-meta{display:flex;justify-content:space-between;gap:6px;margin-top:7px;font-size:9px;color:var(--soft)}\n.task-card-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:7px}\n.task-card-actions button{border:0;border-radius:8px;padding:4px 6px;font-size:9px;background:rgba(23,24,28,.055);color:var(--muted)}\n.task-empty{font-size:10px;color:var(--soft);padding:12px 5px;text-align:center}\n.pin-card{padding:10px 11px;border-radius:14px;background:rgba(23,24,28,.035)}\n.pin-card>div:first-child{display:flex;justify-content:space-between;gap:8px;font-size:10px}\n.pin-card>div:first-child span{color:var(--muted)}\n.pin-card p{font-size:11px;line-height:1.55;white-space:pre-wrap;margin:7px 0;color:var(--text)}\n.pin-card>div:last-child{display:flex;gap:6px}\n@media(max-width:760px){.task-board{grid-template-columns:1fr}.task-col{padding:7px}.task-create-row{grid-template-columns:1fr 1fr}.msg-actions{opacity:1}.reaction-row{max-width:100%}}\n@media(prefers-color-scheme:dark){.field select{background:#22252a}.task-mini,.task-card{background:rgba(255,255,255,.07)}.task-col,.pin-card{background:rgba(255,255,255,.045)}}\n</style>
 </head>
 <body>
 <div class="shell">
@@ -189,6 +189,8 @@ details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
   <div class="brand"><b id="brandTitle">归藏共享聊天室</b><span id="brandSub">自由聊天 · 项目协作 · Muse × Dots</span></div>
   <div class="live"><span class="dot" id="connDot"></span><span id="connText">本机模式</span></div>
   <div class="actions">
+    <button class="btn desktop" id="tasksBtn">任务板 <span id="taskBadge"></span></button>
+    <button class="btn desktop" id="pinsBtn">置顶</button>
     <button class="btn desktop" id="observerBtn">旁观模式</button>
     <button class="btn desktop" id="exportBtn">导出记录</button>
     <button class="btn desktop" id="copyMuse">Muse 邀请</button>
@@ -243,6 +245,7 @@ details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
       <div class="room-title"><h1 id="roomTitle">自由聊天</h1><p id="roomSub">想聊什么都可以，不需要绑定 GitHub 项目。</p></div>
       <div class="room-head-actions">
         <button class="btn ghost mobile-project" id="mobileProject">项目</button>
+        <button class="btn ghost mobile-project" id="mobileTasks">任务</button>
         <button class="btn ghost" id="searchBtn">搜索</button>
         <button class="btn ghost desktop" id="mentionBoth">@Muse + @Dots</button>
       </div>
@@ -292,7 +295,7 @@ details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
       <div class="metric"><div class="v" id="mDecision">0</div><div class="k">最终结论</div></div>
     </div>
   </section>
-  <section class="section"><div class="label">最近结论</div><div class="feed" id="decisions"><div class="offline-note">还没有项目结论。</div></div></section>
+  <section class="section">\n    <div class="label">共享任务</div>\n    <div class="task-summary" id="taskSummary"><div class="offline-note">还没有任务。</div></div>\n    <button class="mini wide-mini" id="openTasksSide">打开任务板</button>\n  </section>\n  <section class="section">\n    <div class="label">置顶重点</div>\n    <div class="feed" id="pinsPreview"><div class="offline-note">还没有置顶消息。</div></div>\n    <button class="mini wide-mini" id="openPinsSide">查看全部置顶</button>\n  </section>\n  <section class="section"><div class="label">最近结论</div><div class="feed" id="decisions"><div class="offline-note">还没有项目结论。</div></div></section>
   <section class="section">
     <div class="label">项目讨论流程</div>
     <div class="step"><b>01</b>独立检查仓库和现有实现</div>
@@ -336,7 +339,7 @@ details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
 </div>
 </dialog>
 
-<dialog id="searchDlg">
+<dialog id="tasksDlg">\n<div class="modal">\n  <h2>共享任务板</h2>\n  <p>把讨论直接转成任务，Muse、Dots 和你都可以更新进度。</p>\n  <div class="task-create">\n    <div class="field"><label>任务标题</label><input id="taskTitle" maxlength="300" placeholder="例如：重构配置编辑页面"></div>\n    <div class="field"><label>补充说明</label><textarea id="taskDetail" rows="3" maxlength="6000" placeholder="目标、范围、注意事项…"></textarea></div>\n    <div class="task-create-row">\n      <div class="field"><label>负责人</label><select id="taskAssignee"><option value="all">所有人</option><option value="owner">我</option><option value="muse">Muse</option><option value="dots">Dots</option></select></div>\n      <div class="field"><label>状态</label><select id="taskStatus"><option value="todo">待处理</option><option value="doing">进行中</option><option value="done">已完成</option></select></div>\n    </div>\n    <input type="hidden" id="taskSourceMessage">\n    <div class="modal-actions"><button class="btn dark" id="createTaskBtn">添加任务</button></div>\n  </div>\n  <div class="task-board" id="taskBoard"></div>\n  <div class="modal-actions"><button class="btn" id="closeTasks">关闭</button></div>\n</div>\n</dialog>\n\n<dialog id="pinsDlg">\n<div class="modal">\n  <h2>置顶重点</h2>\n  <p>重要观点、方案和结论会集中保存在这里。</p>\n  <div class="search-list" id="pinsList"></div>\n  <div class="modal-actions"><button class="btn" id="closePins">关闭</button></div>\n</div>\n</dialog>\n\n<dialog id="searchDlg">
 <div class="modal">
   <h2>搜索聊天记录</h2>
   <p>搜索当前房间已经加载的自由聊天、项目讨论、方案、结论和待办。</p>
