@@ -234,7 +234,7 @@ details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
       <div class="person"><div class="avatar dots">D<span class="presence" data-presence="dots"></span></div><div><div class="pn">Dots</div><div class="ps">聊天 · 分析 · 审查</div></div></div>
     </div>
   </section>
-  <div class="offline-note">自由聊天与项目讨论共用同一个房间。未配置 Supabase 时只保存在当前浏览器；配置后各台云端电脑会实时同步。</div>
+  <div class="offline-note">自由聊天与项目讨论共用同一个实时房间。你、Muse 和 Dots 从不同电脑打开对应链接后，消息会自动同步。</div>
 </aside>
 
 <section class="room glass">
@@ -308,12 +308,15 @@ details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
 <dialog id="settingsDlg">
 <div class="modal">
   <h2>房间设置</h2>
-  <p>GitHub 项目是可选的。只想让三方自由聊天时，不填仓库也能正常使用。</p>
+  <p>实时聊天服务已经配置完成。GitHub 项目是可选的；不填仓库时，这里就是你、Muse 和 Dots 的自由聊天室。</p>
   <div class="field"><label>房间名称</label><input id="setRoomTitle" placeholder="例如：归藏共享聊天室"></div>
   <div class="field"><label>GitHub 仓库地址（可选）</label><input id="setRepo" placeholder="https://github.com/owner/repo"></div>
   <div class="field"><label>项目讨论目标（可选）</label><textarea id="setObjective" rows="3" placeholder="例如：全面检查当前 UI 与配置管理，讨论完整重构方案。"></textarea></div>
-  <div class="field"><label>Supabase Project URL</label><input id="setSb" placeholder="https://xxxx.supabase.co"></div>
-  <div class="field"><label>Supabase Publishable Key</label><input id="setKey" placeholder="sb_publishable_..."></div>
+  <details>
+    <summary>高级：实时服务配置</summary>
+    <div class="field"><label>Supabase Project URL（已配置）</label><input id="setSb" readonly></div>
+    <div class="field"><label>Supabase Publishable Key（可公开前端 Key）</label><input id="setKey" readonly></div>
+  </details>
   <div class="invite-row"><button class="btn" id="copyMuse2">复制 Muse 邀请</button><button class="btn" id="copyDots2">复制 Dots 邀请</button><button class="btn" id="copyOwner">复制我的房间链接</button></div>
   <details>
     <summary>第一次使用 / 升级旧数据库：复制 SQL 到 Supabase SQL Editor 执行</summary>
@@ -358,12 +361,15 @@ import {createClient} from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const qs=new URLSearchParams(location.search);
+const DEFAULT_SB="https://oajwvrjniskcpoiwtkri.supabase.co";
+const DEFAULT_KEY="sb_publishable_gwAEsfrdif_UPG2xkzWuYQ_aF5MF9Da";
+const DEFAULT_ROOM="guizang-main-lobby";
 function randomRoom(){const a=new Uint8Array(24);crypto.getRandomValues(a);return [...a].map(x=>x.toString(16).padStart(2,"0")).join("")}
-let room=qs.get("room")||randomRoom();
+let room=qs.get("room")||DEFAULT_ROOM;
 if(!qs.get("room")){const u=new URL(location.href);u.searchParams.set("room",room);history.replaceState(null,"",u)}
 let cfg=JSON.parse(localStorage.getItem("guizang.room.cfg")||"{}");
-if(qs.get("sb"))cfg.sb=qs.get("sb");
-if(qs.get("key"))cfg.key=qs.get("key");
+cfg.sb=qs.get("sb")||DEFAULT_SB;
+cfg.key=qs.get("key")||DEFAULT_KEY;
 if(qs.get("repo")&&!cfg.repo)cfg.repo=qs.get("repo");
 localStorage.setItem("guizang.room.cfg",JSON.stringify(cfg));
 
@@ -664,7 +670,7 @@ async function send(){
 function inviteUrl(asRole){
   const u=new URL(location.href);u.searchParams.set("room",room);
   if(asRole)u.searchParams.set("as",asRole);else u.searchParams.delete("as");
-  if(cfg.sb)u.searchParams.set("sb",cfg.sb);if(cfg.key)u.searchParams.set("key",cfg.key);if(cfg.repo)u.searchParams.set("repo",cfg.repo);
+  if(cfg.repo)u.searchParams.set("repo",cfg.repo);
   return u.toString();
 }
 async function copyInvite(r){await navigator.clipboard.writeText(inviteUrl(r));toast(`${r==="muse"?"Muse":r==="dots"?"Dots":"房间"}链接已复制`)}
