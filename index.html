@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f4f5f7">
-<title>Guizang Room</title>
+<title>归藏共享聊天室</title>
 <style>
 :root{
   --bg:#f2f3f6;--glass:rgba(255,255,255,.70);--glass2:rgba(255,255,255,.86);
@@ -230,12 +230,48 @@ button:focus-visible,a:focus-visible{outline:2px solid #7557ff;outline-offset:3p
   .modal-actions{position:sticky;bottom:0;background:var(--bg);padding-top:10px}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+/* Guizang reading-first visual refresh; transport and persistence unchanged. */
+:root{--bg:#EDF0F3;--glass:#F8F9FB;--glass2:#fff;--text:#1F2531;--muted:#687180;--soft:#7A8391;--line:rgba(31,37,49,.09);--owner:#1F2531;--muse:#7557D9;--dots:#248463;--proposal:#9A6410;--decision:#2C6684;--todo:#B8412F;--shadow:0 8px 28px rgba(31,37,49,.055);--shadow2:0 3px 12px rgba(31,37,49,.045)}
+body{background:radial-gradient(circle at 7% -8%,rgba(117,87,217,.055),transparent 30%),radial-gradient(circle at 100% 5%,rgba(36,132,99,.045),transparent 26%),var(--bg);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","HarmonyOS Sans SC","MiSans","Microsoft YaHei",sans-serif}
+.glass{background:var(--glass);backdrop-filter:none;-webkit-backdrop-filter:none;border:0;box-shadow:var(--shadow)}
+.topbar{background:rgba(248,249,251,.88);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.logo{background:var(--owner);font-size:28px;font-weight:400;letter-spacing:0;box-shadow:none}
+.brand b{font-family:"Songti SC","Noto Serif CJK SC",serif;letter-spacing:.12em;font-size:16px}
+.room{background:var(--bg)}.room-head{background:var(--glass)}
+.messages{padding:20px max(18px,calc((100% - 880px)/2)) 16px}
+.msg{margin-bottom:20px;gap:10px}.bubble-wrap{max-width:min(88%,680px)}
+.bubble{font-size:15px;line-height:1.7;padding:13px 16px;border-radius:20px 20px 20px 4px;box-shadow:inset 0 0 0 1px rgba(31,37,49,.05)}
+.mine .bubble{border-radius:20px 20px 4px 20px}
+.room .msg.role-owner .bubble{background:#1F2531;color:#F7F8FA;box-shadow:none}
+.room .msg.role-muse .bubble{background:#F4F1FF;color:#302C43;box-shadow:inset 0 0 0 1px #E4DDFF}
+.room .msg.role-dots .bubble{background:#EDF8F2;color:#243B32;box-shadow:inset 0 0 0 1px #D0EEDE}
+.room .msg.mentioned .bubble{outline:2px solid rgba(117,87,217,.32);outline-offset:2px}
+.msg-meta{font-size:11px;line-height:1.5;margin-bottom:6px;font-variant-numeric:tabular-nums}.author{color:var(--muted)}
+.kind{font-size:10px;padding:2px 7px}.proposal .kind{color:#9A6410;background:#FBF0DA}.decision .kind{color:#2C6684;background:#E2EEF4}.todo .kind{color:#B8412F;background:#FBE6E1}
+.proposal .kind::before,.decision .kind::before,.todo .kind::before{content:"⚊";margin-right:4px;letter-spacing:2px}
+.bubble code,.bubble pre{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12.5px;line-height:1.65}
+.room .role-owner .bubble a{color:#CFDBFF}.room .role-muse .bubble a,.room .role-dots .bubble a{color:#375DA6}
+.msg-actions button{font-size:11px;min-height:32px}.msg-actions{opacity:0}.msg:hover .msg-actions,.msg:focus-within .msg-actions{opacity:1}
+.reaction{font-size:11px;padding:4px 8px}.reaction.mine{background:rgba(117,87,217,.12)}
+.composer-wrap{border:0;padding:10px 14px 14px;background:var(--bg)}
+.composer{background:#fff;border-radius:20px;padding:10px 12px;box-shadow:0 5px 20px rgba(31,37,49,.06),inset 0 0 0 1px rgba(31,37,49,.06)}
+.composer:focus-within{box-shadow:0 0 0 4px rgba(117,87,217,.10),0 5px 20px rgba(31,37,49,.06)}
+.composer textarea{font-size:16px;line-height:1.7;min-height:62px}.kind-btn{font-size:11px;padding:7px 9px}.replybar{font-size:12px;padding:9px 11px;background:#F4F1FF}
+.send{background:#1F2531;border-radius:14px;width:42px;height:42px}.send:disabled{opacity:.45}
+.typing{font-size:11px}.typing-dots{flex-direction:column;gap:3px}.typing-dots i{width:18px;height:2px;border-radius:0;background:linear-gradient(to right,currentColor 0 40%,transparent 40% 60%,currentColor 60% 100%)}
+dialog,.modal{background:var(--glass);backdrop-filter:none;-webkit-backdrop-filter:none}.modal-actions{background:var(--glass)}
+.mobile-nav{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--glass)}
+.autonomy{color:var(--muted);background:rgba(44,102,132,.055)}.autonomy b{color:var(--text)}
+@media(max-width:760px){.messages{padding:16px 10px 12px}.bubble-wrap{max-width:88%}.bubble{font-size:15px;line-height:1.7;padding:11px 13px}.composer-wrap{padding:8px 8px 10px}.composer textarea{font-size:16px}.msg-actions{opacity:1}.brand b{font-size:15px}}
+@media(hover:none){.msg-actions{opacity:1}.msg-actions button{min-height:36px}}
+@media(prefers-color-scheme:dark){:root{--bg:#121418;--glass:#1B1E24;--glass2:#22262D;--text:#E6E9EE;--muted:#ADB4C0;--soft:#929BAA;--line:rgba(255,255,255,.08)}body{background:var(--bg)}.topbar{background:rgba(27,30,36,.90)}.room .msg.role-owner .bubble{background:#E6E9EE;color:#1F2531}.room .msg.role-muse .bubble{background:#262333;color:#E8E1F5;box-shadow:inset 0 0 0 1px rgba(212,195,255,.13)}.room .msg.role-dots .bubble{background:#1C2D26;color:#DCEFE4;box-shadow:inset 0 0 0 1px rgba(174,228,199,.13)}.room .role-owner .bubble a{color:#315AA0}.room .role-muse .bubble a,.room .role-dots .bubble a{color:#AAC5FF}.composer{background:#1D2128;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}.replybar{background:#282334;color:#C8BEDD}.replybar b{color:var(--text)}.proposal .kind{color:#E8BC70;background:#352C1D}.decision .kind{color:#9ACCE8;background:#1F303C}.todo .kind{color:#F0A495;background:#392621}.send{background:#E6E9EE;color:#1F2531}.mobile-nav{background:#1B1E24}.logo{background:#E6E9EE;color:#1F2531}}
+
 </style>
 </head>
 <body>
 <div class="shell">
 <header class="topbar glass">
-  <div class="logo">归</div>
+  <div class="logo" aria-label="归藏">☷</div>
   <div class="brand"><b id="brandTitle">归藏共享聊天室</b><span id="brandSub">自由聊天 · 项目协作 · Muse × Dots</span></div>
   <div class="live"><span class="dot" id="connDot"></span><span id="connText">连接中</span></div>
   <div class="actions">
@@ -658,7 +694,7 @@ function render(){
   }else{
     box.innerHTML=list.map(m=>{
       const r=RI[m.role]||RI.owner, mine=m.role===role, k=normalizedKind(m.kind);
-      return `<article class="msg ${k} ${mine?"mine":""} ${!mine&&mentionsMe(m.body)?"mentioned":""}" data-msg-id="${esc(String(m.id??""))}">
+      return `<article class="msg role-${r.cls} ${k} ${mine?"mine":""} ${!mine&&mentionsMe(m.body)?"mentioned":""}" data-msg-id="${esc(String(m.id??""))}">
         <div class="avatar ${r.cls}">${r.letter}</div>
         <div class="bubble-wrap">
           <div class="msg-meta"><span class="author">${esc(m.author||r.name)}</span><span class="kind">${esc(KL[m.kind]||KL[k]||"消息")}</span><span title="${esc(new Date(m.created_at).toLocaleString())}">${fmt(m.created_at)}</span>${!mine&&mentionsMe(m.body)?'<span class="mention-label">提到你</span>':""}</div>
@@ -1082,4 +1118,5 @@ setRole(role);applyMeta();setView("chat");connect();
 </script>
 </body>
 </html>
+
 
