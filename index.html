@@ -726,8 +726,8 @@ async function connect(){
       const row={room_key:room,repo_url:cfg.repo||"",title:cfg.title||"归藏共享聊天室",objective:cfg.objective||""};
       const {error}=await sb.from("rooms").insert(row);if(error)throw error;applyMeta(row);
     }
-    const {data,error}=await sb.from("messages").select("*").eq("room_key",room).order("created_at",{ascending:true}).limit(1500);
-    if(error)throw error;messages=data||[];await loadCollaborationData();render();
+    const {data,error}=await sb.from("messages").select("*").eq("room_key",room).order("created_at",{ascending:false}).limit(1500);
+    if(error)throw error;messages=(data||[]).reverse();await loadCollaborationData();render();
     channel=sb.channel(`guizang-${room}`,{config:{presence:{key:sessionId},broadcast:{self:false}}})
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`room_key=eq.${room}`},p=>{
         if(!messages.some(m=>m.id===p.new.id)){
@@ -736,21 +736,30 @@ async function connect(){
           render();
         }
       })
-      .on("postgres_changes",{event:"*",schema:"public",table:"message_reactions",filter:"room_key=eq."+room},p=>{
-        if(p.eventType==="INSERT"&&!reactions.some(x=>x.id===p.new.id))reactions.push(p.new);
-        if(p.eventType==="DELETE")reactions=reactions.filter(x=>x.id!==p.old.id);
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"message_reactions",filter:"room_key=eq."+room},p=>{
+        if(!reactions.some(x=>x.id===p.new.id))reactions.push(p.new);
         render();
       })
-      .on("postgres_changes",{event:"*",schema:"public",table:"pinned_messages",filter:"room_key=eq."+room},p=>{
-        if(p.eventType==="INSERT"&&!pins.some(x=>x.id===p.new.id))pins.push(p.new);
-        if(p.eventType==="DELETE")pins=pins.filter(x=>x.id!==p.old.id);
+      .on("postgres_changes",{event:"DELETE",schema:"public",table:"message_reactions"},p=>{
+        if(reactions.some(x=>x.id===p.old.id)){reactions=reactions.filter(x=>x.id!==p.old.id);render()}
+      })
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"pinned_messages",filter:"room_key=eq."+room},p=>{
+        if(!pins.some(x=>x.id===p.new.id))pins.push(p.new);
         render();
       })
-      .on("postgres_changes",{event:"*",schema:"public",table:"tasks",filter:"room_key=eq."+room},p=>{
-        if(p.eventType==="INSERT"&&!tasks.some(x=>x.id===p.new.id))tasks.unshift(p.new);
-        if(p.eventType==="UPDATE")tasks=tasks.map(x=>x.id===p.new.id?p.new:x);
-        if(p.eventType==="DELETE")tasks=tasks.filter(x=>x.id!==p.old.id);
+      .on("postgres_changes",{event:"DELETE",schema:"public",table:"pinned_messages"},p=>{
+        if(pins.some(x=>x.id===p.old.id)){pins=pins.filter(x=>x.id!==p.old.id);render()}
+      })
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"tasks",filter:"room_key=eq."+room},p=>{
+        if(!tasks.some(x=>x.id===p.new.id))tasks.unshift(p.new);
         renderCollaboration();
+      })
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"tasks",filter:"room_key=eq."+room},p=>{
+        tasks=tasks.map(x=>x.id===p.new.id?p.new:x);
+        renderCollaboration();
+      })
+      .on("postgres_changes",{event:"DELETE",schema:"public",table:"tasks"},p=>{
+        if(tasks.some(x=>x.id===p.old.id)){tasks=tasks.filter(x=>x.id!==p.old.id);renderCollaboration()}
       })
       .on("broadcast",{event:"typing"},({payload})=>{if(payload?.active)noteTyping(payload.role)})
       .on("presence",{event:"sync"},syncPresence)
