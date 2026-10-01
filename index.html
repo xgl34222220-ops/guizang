@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8">
+<meta charset="utf-8"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f4f5f7">
 <title>Guizang Room</title>
@@ -187,7 +187,7 @@ details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
 <header class="topbar glass">
   <div class="logo">归</div>
   <div class="brand"><b id="brandTitle">归藏共享聊天室</b><span id="brandSub">自由聊天 · 项目协作 · Muse × Dots</span></div>
-  <div class="live"><span class="dot" id="connDot"></span><span id="connText">本机模式</span></div>
+  <div class="live"><span class="dot" id="connDot"></span><span id="connText">连接中</span></div>
   <div class="actions">
     <button class="btn desktop" id="tasksBtn">任务板 <span id="taskBadge"></span></button>
     <button class="btn desktop" id="pinsBtn">置顶</button>
@@ -360,7 +360,7 @@ details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
 <div class="toast" id="toast"></div>
 
 <script type="module">
-import {createClient} from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+import {createClient} from "./supabase-bundle.js?v=20261001-2041";
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const qs=new URLSearchParams(location.search);
