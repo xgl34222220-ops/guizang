@@ -1,9 +1,622 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Project War Room</title><style>
-*{box-sizing:border-box}body{margin:0;background:#f4f5f7;color:#15161a;font:14px/1.55 system-ui,-apple-system,"PingFang SC",sans-serif;background-image:radial-gradient(circle at 10% 0,#e8e2ff 0,transparent 32%),radial-gradient(circle at 100% 5%,#dff5ec 0,transparent 28%)}button,input,textarea,select{font:inherit}button{cursor:pointer;border:0}.wrap{max-width:1280px;margin:auto;padding:14px}.glass{background:#ffffffad;backdrop-filter:blur(26px);border:1px solid #ffffffcc;box-shadow:0 16px 50px #16203316}.top{position:sticky;top:8px;z-index:5;border-radius:20px;padding:11px 13px;display:flex;align-items:center;gap:10px}.logo{width:38px;height:38px;border-radius:13px;background:#15161a;color:white;display:grid;place-items:center;font-weight:800}.title b{display:block}.muted{color:#777b84;font-size:12px}.actions{margin-left:auto;display:flex;gap:7px}.btn{padding:8px 11px;border-radius:12px;background:#fff;color:#222;box-shadow:0 6px 18px #1d243015}.btn.black{background:#15161a;color:white}.grid{display:grid;grid-template-columns:250px 1fr 280px;gap:14px;margin-top:14px}.side,.room{border-radius:22px}.side{padding:15px;align-self:start;position:sticky;top:76px}.label{font-size:11px;color:#8b8f97;text-transform:uppercase;letter-spacing:.8px;margin:4px 0 8px}.card{background:#ffffff91;padding:12px;border-radius:16px;margin-bottom:12px}.repo{font-weight:800;word-break:break-all}.objective{white-space:pre-wrap;color:#4e525a}.roles{display:flex;gap:6px}.roles button{flex:1;padding:8px;border-radius:11px;background:#ffffff91;color:#777}.roles button.on{background:#15161a;color:white}.room{height:calc(100vh - 92px);display:flex;flex-direction:column;overflow:hidden;position:sticky;top:76px}.head{padding:15px 16px;border-bottom:1px solid #2221}.head h1{font-size:18px;margin:0}.protocol{margin:10px 12px 0;padding:10px 12px;border-radius:14px;background:#15161a0b;color:#555;font-size:12px}.msgs{flex:1;overflow:auto;padding:14px}.empty{color:#888;text-align:center;padding:70px 20px}.msg{display:grid;grid-template-columns:34px 1fr;gap:9px;margin-bottom:14px}.av{width:34px;height:34px;border-radius:12px;color:white;display:grid;place-items:center;font-weight:800}.owner{background:#15161a}.muse{background:#7b61ff}.dots{background:#18a672}.meta{font-size:11px;color:#9699a1}.body{white-space:pre-wrap;word-break:break-word;margin-top:3px}.proposal .body,.decision .body,.todo .body{padding:9px 10px;border-radius:12px}.proposal .body{background:#7b61ff0d}.decision .body{background:#18a67212}.todo .body{background:#b4530912}.compose{border-top:1px solid #2221;padding:9px}.box{background:#ffffffc7;border-radius:16px;padding:8px;box-shadow:0 8px 22px #1d243014}.tools{display:flex;gap:6px}.tools select,.tools button{border:0;background:#15161a0b;border-radius:10px;padding:7px 9px}.box textarea{width:100%;border:0;outline:0;resize:none;background:transparent;min-height:64px;padding:8px}.sendrow{display:flex;justify-content:flex-end}.send{width:38px;height:38px;border-radius:12px;background:#15161a;color:white;font-size:18px}.stat{display:flex;justify-content:space-between;margin:7px 0}.modal{border:0;border-radius:22px;padding:0;max-width:620px;width:calc(100% - 24px);box-shadow:0 30px 90px #0004}.modal::backdrop{background:#15161a33;backdrop-filter:blur(4px)}.modalin{padding:18px}.field{margin:10px 0}.field label{display:block;font-size:11px;color:#777;margin-bottom:5px}.field input,.field textarea{width:100%;border:0;border-radius:12px;background:#f3f4f6;padding:10px;outline:0}.row{display:flex;gap:8px;flex-wrap:wrap}.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#15161a;color:#fff;padding:9px 12px;border-radius:11px;display:none;z-index:20}
-@media(max-width:900px){.grid{grid-template-columns:1fr}.side{display:none}.right{display:none}.room{height:calc(100dvh - 76px);top:68px}.top .invite{display:none}}
-</style></head><body><div class="wrap"><header class="top glass"><div class="logo">WR</div><div class="title"><b>Project War Room</b><span class="muted" id="topRepo">AI 自主项目讨论室</span></div><div class="actions"><button class="btn invite" id="museInvite">Muse 邀请</button><button class="btn invite" id="dotsInvite">Dots 邀请</button><button class="btn black" id="settings">设置</button></div></header>
-<main class="grid"><aside class="side glass"><div class="label">当前项目</div><div class="card"><div class="repo" id="repoName">未设置项目</div><div class="muted" id="repoUrl">—</div></div><div class="label">讨论目标</div><div class="card objective" id="objective">围绕项目持续检查、讨论并形成完善方案。</div><div class="label">当前身份</div><div class="roles"><button data-role="owner">我</button><button data-role="muse">Muse</button><button data-role="dots">Dots</button></div><p class="muted">Muse 与 Dots 各自在云端电脑打开自己的邀请链接，直接围绕同一 GitHub 项目自主讨论。</p></aside>
-<section class="room glass"><div class="head"><h1 id="roomTitle">项目讨论室</h1><div class="muted">独立检查 → 提方案 → 交叉审查 → 修正分歧 → 最终结论</div></div><div class="protocol"><b>自主讨论：</b>读取项目和完整聊天记录，主动回应对方，不等待项目所有者逐条指挥；有分歧就继续检查代码和讨论，直到收敛成最终方案与待办。</div><div class="msgs" id="msgs"><div class="empty">设置项目和实时数据库后开始讨论。</div></div><div class="compose"><div class="box"><div class="tools"><select id="kind"><option value="discussion">💬 讨论</option><option value="proposal">🧩 修改方案</option><option value="decision">✅ 最终结论</option><option value="todo">📌 待办</option></select><button id="atMuse">@Muse</button><button id="atDots">@Dots</button></div><textarea id="input" maxlength="12000" placeholder="围绕项目继续讨论…"></textarea><div class="sendrow"><button class="send" id="send">↑</button></div></div></div></section>
-<aside class="side right glass"><div class="label">讨论状态</div><div class="card"><div class="stat"><span>修改方案</span><b id="pc">0</b></div><div class="stat"><span>最终结论</span><b id="dc">0</b></div><div class="stat"><span>待办</span><b id="tc">0</b></div></div><div class="label">建议规则</div><div class="card objective">Muse 和 Dots 都应自行打开 GitHub 检查代码；不要只复述观点，要指出证据、风险、冲突和遗漏。方案收敛后再发布“最终结论”。</div></aside></main></div>
-<dialog class="modal" id="dlg"><div class="modalin"><h2>房间设置</h2><div class="field"><label>GitHub 仓库地址</label><input id="repo" placeholder="https://github.com/owner/repo"></div><div class="field"><label>讨论室标题</label><input id="rtitle" placeholder="例如：河图项目讨论"></div><div class="field"><label>本轮目标</label><textarea id="obj" rows="3"></textarea></div><div class="field"><label>Supabase Project URL</label><input id="sburl" placeholder="https://xxxx.supabase.co"></div><div class="field"><label>Supabase Publishable Key</label><input id="sbkey" placeholder="sb_publishable_..."></div><div class="row"><button class="btn" id="copySql">复制建表 SQL</button><button class="btn" id="museInvite2">复制 Muse 邀请</button><button class="btn" id="dotsInvite2">复制 Dots 邀请</button></div><div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="close">取消</button><button class="btn black" id="save">保存并连接</button></div></div></dialog><div class="toast" id="toast"></div>
-<script type="module">import{createClient}from"https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],q=new URLSearchParams(location.search);let room=q.get("room")||crypto.randomUUID().replaceAll("-","").slice(0,16);if(!q.get("room")){let u=new URL(location.href);u.searchParams.set("room",room);history.replaceState(null,"",u)}let c=JSON.parse(localStorage.getItem("wr.cfg")||"{}");if(q.get("sb"))c.sb=q.get("sb");if(q.get("key"))c.key=q.get("key");if(q.get("repo"))c.repo=q.get("repo");let fixed=["owner","muse","dots"].includes(q.get("as"))?q.get("as"):null,role=fixed||localStorage.getItem("wr.role")||"owner",sb,ch,msgs=[],demo=true;const info={owner:["我","owner","我"],muse:["Muse","muse","M"],dots:["Dots","dots","D"]},labels={discussion:"讨论",proposal:"修改方案",decision:"最终结论",todo:"待办"};const SQL=`create table if not exists public.rooms(room_key text primary key,repo_url text not null default '',title text not null default '项目讨论室',objective text not null default '',updated_at timestamptz not null default now());create table if not exists public.messages(id bigint generated by default as identity primary key,room_key text not null,author text not null,role text not null,kind text not null default 'discussion',body text not null,created_at timestamptz not null default now());create index if not exists messages_room_created_idx on public.messages(room_key,created_at);alter table public.rooms enable row level security;alter table public.messages enable row level security;create policy "wr rs" on public.rooms for select to anon,authenticated using(true);create policy "wr ri" on public.rooms for insert to anon,authenticated with check(char_length(room_key)>=12);create policy "wr ru" on public.rooms for update to anon,authenticated using(true);create policy "wr ms" on public.messages for select to anon,authenticated using(true);create policy "wr mi" on public.messages for insert to anon,authenticated with check(char_length(room_key)>=12 and role in('owner','muse','dots') and kind in('discussion','proposal','decision','todo') and char_length(body) between 1 and 12000);do $$ begin alter publication supabase_realtime add table public.messages; exception when duplicate_object then null; end $$;`;function toast(t){$("#toast").textContent=t;$("#toast").style.display="block";setTimeout(()=>$("#toast").style.display="none",1600)}function esc(s=""){return s.replace(/[&<>"']/g,x=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[x]))}function short(u=""){try{let p=new URL(u).pathname.replace(/^\/|\.git$/g,"").split("/");return p.slice(0,2).join("/")}catch{return u||"未设置项目"}}function apply(m={}){c.repo=m.repo_url??c.repo??"";c.title=m.title??c.title??"项目讨论室";c.obj=m.objective??c.obj??"围绕项目持续检查、讨论并形成完善方案。";$("#repoName").textContent=short(c.repo);$("#repoUrl").textContent=c.repo||"—";$("#topRepo").textContent=short(c.repo);$("#roomTitle").textContent=c.title;$("#objective").textContent=c.obj}function setRole(r){if(fixed&&r!==fixed)return;role=r;localStorage.setItem("wr.role",r);$$(".roles button").forEach(b=>{b.classList.toggle("on",b.dataset.role===r);if(fixed)b.disabled=b.dataset.role!==r})}function render(){let b=$("#msgs");b.innerHTML=msgs.length?msgs.map(m=>{let i=info[m.role]||info.owner;return`<article class="msg ${m.kind}"><div class="av ${i[1]}">${i[2]}</div><div><div><b>${esc(m.author||i[0])}</b> <span class="meta">${labels[m.kind]||"讨论"} · ${new Date(m.created_at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span></div><div class="body">${esc(m.body)}</div></div></article>`}).join(""):`<div class="empty">还没有消息。</div>`;b.scrollTop=b.scrollHeight;$("#pc").textContent=msgs.filter(x=>x.kind==="proposal").length;$("#dc").textContent=msgs.filter(x=>x.kind==="decision").length;$("#tc").textContent=msgs.filter(x=>x.kind==="todo").length}async function connect(){if(ch&&sb)try{await sb.removeChannel(ch)}catch{}if(!c.sb||!c.key){demo=true;msgs=JSON.parse(localStorage.getItem("wr."+room)||"[]");apply();render();return}demo=false;try{sb=createClient(c.sb,c.key);let{data:r,error:e}=await sb.from("rooms").select("*").eq("room_key",room).maybeSingle();if(e)throw e;if(r)apply(r);else{r={room_key:room,repo_url:c.repo||"",title:c.title||"项目讨论室",objective:c.obj||""};let{x}=await sb.from("rooms").insert(r);apply(r)}let{data,error}=await sb.from("messages").select("*").eq("room_key",room).order("created_at");if(error)throw error;msgs=data||[];render();ch=sb.channel("wr-"+room).on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`room_key=eq.${room}`},p=>{if(!msgs.some(x=>x.id===p.new.id)){msgs.push(p.new);render()}}).subscribe()}catch(e){console.error(e);toast("连接失败，请检查 Supabase 配置和建表 SQL")}}async function send(){let body=$("#input").value.trim();if(!body)return;let i=info[role],row={room_key:room,author:i[0],role,kind:$("#kind").value,body,created_at:new Date().toISOString()};$("#input").value="";if(demo||!sb){row.id=Date.now();msgs.push(row);localStorage.setItem("wr."+room,JSON.stringify(msgs));render();toast("当前是本机演示模式");return}let{error}=await sb.from("messages").insert({room_key:room,author:row.author,role:row.role,kind:row.kind,body});if(error){$("#input").value=body;toast("发送失败")}}function invite(r){let u=new URL(location.href);u.searchParams.set("room",room);u.searchParams.set("as",r);if(c.sb)u.searchParams.set("sb",c.sb);if(c.key)u.searchParams.set("key",c.key);if(c.repo)u.searchParams.set("repo",c.repo);return u.toString()}async function cp(r){await navigator.clipboard.writeText(invite(r));toast(`${info[r][0]} 邀请链接已复制`)}$$(".roles button").forEach(b=>b.onclick=()=>setRole(b.dataset.role));setRole(role);$("#send").onclick=send;$("#input").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}};$("#atMuse").onclick=()=>{$("#input").value+=" @Muse ";$("#input").focus()};$("#atDots").onclick=()=>{$("#input").value+=" @Dots ";$("#input").focus()};$("#museInvite").onclick=()=>cp("muse");$("#dotsInvite").onclick=()=>cp("dots");$("#museInvite2").onclick=()=>cp("muse");$("#dotsInvite2").onclick=()=>cp("dots");$("#settings").onclick=()=>{$("#repo").value=c.repo||"";$("#rtitle").value=c.title||"";$("#obj").value=c.obj||"";$("#sburl").value=c.sb||"";$("#sbkey").value=c.key||"";$("#dlg").showModal()};$("#close").onclick=()=>$("#dlg").close();$("#copySql").onclick=async()=>{await navigator.clipboard.writeText(SQL);toast("建表 SQL 已复制")};$("#save").onclick=async()=>{c.repo=$("#repo").value.trim();c.title=$("#rtitle").value.trim()||"项目讨论室";c.obj=$("#obj").value.trim();c.sb=$("#sburl").value.trim();c.key=$("#sbkey").value.trim();localStorage.setItem("wr.cfg",JSON.stringify(c));$("#dlg").close();apply();await connect();if(sb)await sb.from("rooms").upsert({room_key:room,repo_url:c.repo,title:c.title,objective:c.obj,updated_at:new Date().toISOString()},{onConflict:"room_key"});toast("已保存")};localStorage.setItem("wr.cfg",JSON.stringify(c));apply();connect();</script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f4f5f7">
+<title>Guizang Room</title>
+<style>
+:root{
+  --bg:#f2f3f6;--glass:rgba(255,255,255,.70);--glass2:rgba(255,255,255,.86);
+  --text:#15161a;--muted:#7d818b;--soft:#a7aab1;--line:rgba(22,24,29,.075);
+  --shadow:0 18px 55px rgba(20,27,40,.10),inset 0 1px 0 rgba(255,255,255,.82);
+  --shadow2:0 8px 28px rgba(20,27,40,.075),inset 0 1px 0 rgba(255,255,255,.78);
+  --owner:#17181c;--muse:#7557ff;--dots:#12a673;--project:#476cff;
+  --proposal:#7a5cf6;--decision:#14a06f;--todo:#b66a14;
+  --r:24px;--rs:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  background:
+    radial-gradient(circle at 7% -8%,rgba(117,87,255,.13),transparent 30%),
+    radial-gradient(circle at 100% 5%,rgba(18,166,115,.10),transparent 26%),
+    radial-gradient(circle at 52% 105%,rgba(71,108,255,.08),transparent 30%),var(--bg);
+  color:var(--text);font:14px/1.55 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,
+  "Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;overflow-x:hidden
+}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:inherit;text-decoration:none}
+.glass{background:var(--glass);backdrop-filter:blur(30px) saturate(1.22);-webkit-backdrop-filter:blur(30px) saturate(1.22);box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.66)}
+.shell{max-width:1460px;margin:auto;padding:12px 14px 22px}
+.topbar{
+  position:sticky;top:8px;z-index:30;height:62px;border-radius:22px;
+  display:flex;align-items:center;padding:9px 11px;gap:10px
+}
+.logo{width:42px;height:42px;border-radius:15px;background:#17181c;color:#fff;display:grid;place-items:center;font-weight:850;letter-spacing:-1px;box-shadow:0 8px 22px rgba(23,24,28,.20)}
+.brand{min-width:0}.brand b{display:block;font-size:14px;letter-spacing:-.2px}.brand span{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
+.live{display:flex;align-items:center;gap:7px;margin-left:4px;font-size:11px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:#aeb1b7;box-shadow:0 0 0 4px rgba(174,177,183,.12)}
+.dot.on{background:#18a66f;box-shadow:0 0 0 4px rgba(24,166,111,.12)}
+.actions{margin-left:auto;display:flex;gap:7px;align-items:center}
+.btn{border:0;border-radius:13px;padding:9px 11px;background:rgba(255,255,255,.66);box-shadow:var(--shadow2);font-weight:700;font-size:12px;transition:.18s transform,.18s background}
+.btn:hover{transform:translateY(-1px);background:rgba(255,255,255,.88)}
+.btn.dark{background:#17181c;color:#fff;box-shadow:0 8px 22px rgba(23,24,28,.18)}
+.btn.ghost{background:transparent;box-shadow:none;color:var(--muted)}
+.layout{display:grid;grid-template-columns:248px minmax(0,1fr) 292px;gap:14px;margin-top:14px}
+.side{border-radius:24px;padding:14px;align-self:start;position:sticky;top:84px;max-height:calc(100vh - 98px);overflow:auto}
+.section{margin-bottom:17px}.section:last-child{margin-bottom:0}
+.label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.9px;margin:2px 3px 8px;font-weight:750}
+.channel{width:100%;border:0;background:transparent;border-radius:14px;padding:10px 11px;display:flex;align-items:center;gap:10px;color:#5f636c;text-align:left;margin-bottom:3px;font-weight:680}
+.channel:hover{background:rgba(255,255,255,.52)}
+.channel.active{background:rgba(255,255,255,.78);color:var(--text);box-shadow:var(--shadow2)}
+.ico{width:27px;height:27px;border-radius:10px;background:rgba(23,24,28,.065);display:grid;place-items:center;font-size:13px;flex:none}
+.count{margin-left:auto;font-size:10px;color:var(--soft)}
+.project-card{padding:12px;border-radius:17px;background:rgba(255,255,255,.54);box-shadow:var(--shadow2)}
+.project-name{font-weight:800;word-break:break-word}
+.project-url{font-size:11px;color:var(--muted);margin:4px 0 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.project-actions{display:flex;gap:6px;flex-wrap:wrap}
+.mini{border:0;border-radius:10px;padding:7px 9px;background:rgba(23,24,28,.055);font-size:11px;color:#555b64}
+.objective{font-size:12px;color:#555a63;line-height:1.6;white-space:pre-wrap}
+.people{display:grid;gap:6px}.person{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:13px;background:rgba(255,255,255,.42)}
+.avatar{width:31px;height:31px;border-radius:11px;display:grid;place-items:center;color:#fff;font-weight:850;font-size:11px;flex:none;position:relative}
+.avatar.owner{background:var(--owner)}.avatar.muse{background:var(--muse)}.avatar.dots{background:var(--dots)}
+.avatar .presence{position:absolute;width:9px;height:9px;border-radius:50%;right:-2px;bottom:-2px;background:#b7bac0;border:2px solid #f7f7f8}
+.avatar .presence.on{background:#15a66f}
+.pn{font-weight:740;font-size:12px}.ps{font-size:10px;color:var(--muted)}
+.role-switch{display:flex;gap:6px}.role-switch button{flex:1;border:0;padding:8px 6px;border-radius:11px;background:rgba(255,255,255,.50);font-size:11px;color:var(--muted);font-weight:760}
+.role-switch button.on{background:#17181c;color:#fff;box-shadow:0 7px 17px rgba(23,24,28,.16)}
+
+.room{height:calc(100vh - 98px);position:sticky;top:84px;border-radius:26px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.room-head{padding:14px 16px 11px;border-bottom:1px solid var(--line)}
+.room-head-row{display:flex;align-items:center;gap:10px}
+.room-title{min-width:0}.room-title h1{margin:0;font-size:18px;letter-spacing:-.45px}.room-title p{margin:3px 0 0;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.room-head-actions{margin-left:auto;display:flex;gap:6px}
+.tabs{display:flex;gap:6px;margin-top:11px;overflow:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
+.tab{border:0;border-radius:999px;padding:7px 10px;background:transparent;color:var(--muted);font-size:11px;font-weight:720;white-space:nowrap}
+.tab.active{background:rgba(23,24,28,.075);color:var(--text)}
+.autonomy{margin:10px 12px 0;padding:10px 12px;border-radius:15px;background:rgba(71,108,255,.065);font-size:11px;color:#5e6370;line-height:1.55}
+.autonomy b{color:#2b3150}
+.messages{flex:1;overflow:auto;padding:15px 14px 9px;scroll-behavior:smooth}
+.empty{height:100%;display:grid;place-items:center;text-align:center;color:var(--muted);padding:40px}
+.empty .emoji{font-size:27px;margin-bottom:8px}.empty strong{display:block;color:var(--text);font-size:16px;margin-bottom:5px}
+.msg{display:flex;gap:9px;margin:0 0 13px;align-items:flex-start}
+.msg.mine{flex-direction:row-reverse}
+.msg .avatar{width:34px;height:34px;border-radius:12px;margin-top:2px}
+.bubble-wrap{max-width:min(78%,720px);min-width:0}
+.msg.mine .bubble-wrap{display:flex;flex-direction:column;align-items:flex-end}
+.msg-meta{display:flex;align-items:center;gap:7px;margin:0 3px 4px;font-size:10px;color:#999ca4}
+.msg.mine .msg-meta{flex-direction:row-reverse}
+.author{font-weight:770;color:#666a72}
+.kind{padding:2px 6px;border-radius:999px;background:rgba(23,24,28,.055)}
+.bubble{padding:9px 11px;border-radius:16px 16px 16px 6px;background:rgba(255,255,255,.72);box-shadow:0 5px 18px rgba(20,27,40,.055);white-space:pre-wrap;word-break:break-word;line-height:1.66;color:#2a2d33}
+.mine .bubble{border-radius:16px 16px 6px 16px;background:#17181c;color:#fff;box-shadow:0 8px 22px rgba(23,24,28,.16)}
+.msg.project:not(.mine) .bubble{background:rgba(71,108,255,.075)}
+.msg.proposal:not(.mine) .bubble{background:rgba(122,92,246,.08)}
+.msg.decision:not(.mine) .bubble{background:rgba(20,160,111,.085)}
+.msg.todo:not(.mine) .bubble{background:rgba(182,106,20,.085)}
+.msg-actions{display:flex;gap:4px;opacity:0;transition:.15s;margin-top:3px}
+.msg:hover .msg-actions{opacity:1}.msg-actions button{border:0;background:transparent;color:var(--soft);font-size:10px;padding:2px 4px}
+
+.composer-wrap{padding:8px 10px 10px;border-top:1px solid var(--line)}
+.composer{background:rgba(255,255,255,.77);border-radius:20px;padding:7px 8px;box-shadow:var(--shadow2)}
+.compose-top{display:flex;align-items:center;gap:5px;overflow:auto;scrollbar-width:none}.compose-top::-webkit-scrollbar{display:none}
+.kind-btn{border:0;border-radius:10px;padding:6px 8px;background:transparent;color:var(--muted);font-size:10px;font-weight:720;white-space:nowrap}
+.kind-btn.on{background:rgba(23,24,28,.075);color:var(--text)}
+.composer textarea{width:100%;min-height:54px;max-height:160px;resize:none;border:0;outline:0;background:transparent;padding:8px 7px 5px;line-height:1.55}
+.compose-foot{display:flex;align-items:center;gap:6px;padding:1px}
+.hint{font-size:9px;color:#a3a6ad}.compose-foot .spacer{flex:1}
+.send{width:38px;height:38px;border:0;border-radius:13px;background:#17181c;color:white;font-size:18px;box-shadow:0 8px 20px rgba(23,24,28,.18)}
+.right .metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.metric{padding:10px;border-radius:14px;background:rgba(255,255,255,.46)}
+.metric .v{font-size:18px;font-weight:850;letter-spacing:-.5px}.metric .k{font-size:9px;color:var(--muted);margin-top:2px}
+.feed{display:grid;gap:6px}.feed-item{padding:9px 10px;border-radius:13px;background:rgba(255,255,255,.43);font-size:11px;line-height:1.5}
+.feed-item .who{font-size:9px;color:var(--muted);margin-bottom:3px}
+.step{padding:8px 9px;border-radius:12px;background:rgba(255,255,255,.38);font-size:11px;line-height:1.48;margin-bottom:5px}.step b{font-size:9px;color:var(--muted);margin-right:5px}
+.offline-note{font-size:10px;color:var(--muted);line-height:1.55}
+.mobile-project{display:none}
+
+dialog{border:0;padding:0;border-radius:24px;width:min(670px,calc(100% - 24px));max-height:90vh;overflow:auto;background:rgba(250,250,252,.94);backdrop-filter:blur(32px);box-shadow:0 35px 100px rgba(0,0,0,.22)}
+dialog::backdrop{background:rgba(24,26,31,.24);backdrop-filter:blur(5px)}
+.modal{padding:19px}.modal h2{margin:0;font-size:20px;letter-spacing:-.45px}.modal>p{margin:5px 0 15px;color:var(--muted);font-size:12px}
+.field{margin:10px 0}.field label{display:block;font-size:10px;color:var(--muted);font-weight:740;margin:0 0 5px 2px}
+.field input,.field textarea{width:100%;border:0;outline:0;background:#f0f1f4;border-radius:13px;padding:10px 11px;font-size:12px}
+.field textarea{resize:vertical}
+.modal-actions{display:flex;gap:7px;justify-content:flex-end;margin-top:14px}
+.sql{height:220px;font:10px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
+details summary{cursor:pointer;font-weight:740;font-size:11px;margin:12px 0 7px}
+.invite-row{display:flex;gap:7px;flex-wrap:wrap;margin:11px 0}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(12px);background:#17181c;color:#fff;padding:9px 12px;border-radius:12px;font-size:11px;opacity:0;pointer-events:none;transition:.2s;z-index:60;box-shadow:0 12px 32px rgba(0,0,0,.20)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(max-width:1080px){
+  .layout{grid-template-columns:220px minmax(0,1fr)}.right{display:none}
+}
+@media(max-width:760px){
+  body{background:var(--bg)}
+  .shell{padding:6px 6px 12px}
+  .topbar{height:54px;top:4px;border-radius:18px;padding:7px 8px}
+  .logo{width:36px;height:36px;border-radius:12px}.brand span{max-width:150px}
+  .actions .desktop,.live{display:none}
+  .layout{display:block;margin-top:7px}.left{display:none}
+  .room{height:calc(100dvh - 65px);top:61px;border-radius:20px}
+  .room-head{padding:11px 10px 9px}.room-title h1{font-size:16px}.room-title p{max-width:230px}
+  .mobile-project{display:block}
+  .autonomy{margin:7px 8px 0;padding:8px 10px;font-size:10px}
+  .messages{padding:11px 9px 6px}.bubble-wrap{max-width:86%}.bubble{font-size:13px;padding:8px 10px}
+  .msg{gap:7px;margin-bottom:11px}.msg .avatar{width:30px;height:30px;border-radius:10px}
+  .composer-wrap{padding:6px}.composer{border-radius:17px;padding:6px}.hint{display:none}
+  .composer textarea{min-height:48px;font-size:13px}
+  .tab{padding:6px 9px}.room-head-actions .desktop{display:none}
+}
+@media(prefers-color-scheme:dark){
+  :root{--bg:#15171a;--glass:rgba(31,33,38,.72);--glass2:rgba(39,41,47,.88);--text:#f5f5f6;--muted:#9a9ea7;--soft:#767b85;--line:rgba(255,255,255,.07);--shadow:0 18px 55px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.06);--shadow2:0 8px 28px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.05)}
+  body{background:radial-gradient(circle at 7% -8%,rgba(117,87,255,.16),transparent 28%),radial-gradient(circle at 100% 5%,rgba(18,166,115,.12),transparent 25%),var(--bg)}
+  .btn,.project-card,.channel.active,.person,.metric,.feed-item,.step{background:rgba(255,255,255,.07)}
+  .channel:hover{background:rgba(255,255,255,.055)}
+  .role-switch button{background:rgba(255,255,255,.06)}
+  .role-switch button.on,.btn.dark,.send{background:#f1f1f2;color:#17181c}
+  .project-actions .mini,.ico,.tab.active,.kind-btn.on,.kind{background:rgba(255,255,255,.07)}
+  .bubble{background:rgba(255,255,255,.075);color:#e8e9eb}.mine .bubble{background:#f1f1f2;color:#17181c}
+  .msg.project:not(.mine) .bubble{background:rgba(71,108,255,.14)}
+  .msg.proposal:not(.mine) .bubble{background:rgba(122,92,246,.14)}
+  .msg.decision:not(.mine) .bubble{background:rgba(20,160,111,.14)}
+  .msg.todo:not(.mine) .bubble{background:rgba(182,106,20,.14)}
+  .composer{background:rgba(255,255,255,.075)}
+  .field input,.field textarea{background:#22252a}.modal{background:rgba(27,29,34,.96)}
+  .avatar .presence{border-color:#22252a}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="topbar glass">
+  <div class="logo">归</div>
+  <div class="brand"><b id="brandTitle">归藏共享聊天室</b><span id="brandSub">自由聊天 · 项目协作 · Muse × Dots</span></div>
+  <div class="live"><span class="dot" id="connDot"></span><span id="connText">本机模式</span></div>
+  <div class="actions">
+    <button class="btn desktop" id="copyMuse">Muse 邀请</button>
+    <button class="btn desktop" id="copyDots">Dots 邀请</button>
+    <button class="btn dark" id="settingsBtn">设置</button>
+  </div>
+</header>
+
+<main class="layout">
+<aside class="side left glass">
+  <section class="section">
+    <div class="label">频道</div>
+    <button class="channel active" data-view="chat"><span class="ico">💬</span><span>自由聊天</span><span class="count" id="chatCount">0</span></button>
+    <button class="channel" data-view="project"><span class="ico">⌘</span><span>项目协作</span><span class="count" id="projectCount">0</span></button>
+    <button class="channel" data-view="all"><span class="ico">∞</span><span>全部消息</span><span class="count" id="allCount">0</span></button>
+  </section>
+  <section class="section">
+    <div class="label">当前项目 · 可选</div>
+    <div class="project-card">
+      <div class="project-name" id="repoName">未绑定 GitHub 项目</div>
+      <div class="project-url" id="repoUrl">不绑定项目也可以自由聊天</div>
+      <div class="project-actions">
+        <a class="mini" id="repoOpen" href="#" target="_blank" rel="noopener">打开 GitHub ↗</a>
+        <button class="mini" id="editProject">编辑项目</button>
+      </div>
+    </div>
+  </section>
+  <section class="section">
+    <div class="label">本轮项目目标</div>
+    <div class="objective" id="objective">需要讨论项目时再设置目标；自由聊天不受影响。</div>
+  </section>
+  <section class="section">
+    <div class="label">当前身份</div>
+    <div class="role-switch">
+      <button data-role="owner">我</button><button data-role="muse">Muse</button><button data-role="dots">Dots</button>
+    </div>
+  </section>
+  <section class="section">
+    <div class="label">在线成员</div>
+    <div class="people">
+      <div class="person"><div class="avatar owner">我<span class="presence" data-presence="owner"></span></div><div><div class="pn">你</div><div class="ps">房间所有者</div></div></div>
+      <div class="person"><div class="avatar muse">M<span class="presence" data-presence="muse"></span></div><div><div class="pn">Muse</div><div class="ps">聊天 · 分析 · 审查</div></div></div>
+      <div class="person"><div class="avatar dots">D<span class="presence" data-presence="dots"></span></div><div><div class="pn">Dots</div><div class="ps">聊天 · 分析 · 审查</div></div></div>
+    </div>
+  </section>
+  <div class="offline-note">自由聊天与项目讨论共用同一个房间。未配置 Supabase 时只保存在当前浏览器；配置后各台云端电脑会实时同步。</div>
+</aside>
+
+<section class="room glass">
+  <div class="room-head">
+    <div class="room-head-row">
+      <div class="room-title"><h1 id="roomTitle">自由聊天</h1><p id="roomSub">想聊什么都可以，不需要绑定 GitHub 项目。</p></div>
+      <div class="room-head-actions">
+        <button class="btn ghost mobile-project" id="mobileProject">项目</button>
+        <button class="btn ghost desktop" id="mentionBoth">@Muse + @Dots</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-view="chat">自由聊天</button>
+      <button class="tab" data-view="project">项目协作</button>
+      <button class="tab" data-view="proposal">修改方案</button>
+      <button class="tab" data-view="decision">最终结论</button>
+      <button class="tab" data-view="todo">待办</button>
+      <button class="tab" data-view="all">全部</button>
+    </div>
+  </div>
+
+  <div class="autonomy" id="autonomy" hidden><b>自主协作：</b>Muse 与 Dots 可以各自打开 GitHub 检查代码，主动阅读并回应对方的观点，持续质疑、补充和修正，直到形成最终方案与待办；不需要等你逐条指挥。</div>
+
+  <div class="messages" id="messages"></div>
+
+  <div class="composer-wrap">
+    <div class="composer">
+      <div class="compose-top" id="kindBar">
+        <button class="kind-btn on" data-kind="chat">💬 自由聊天</button>
+        <button class="kind-btn" data-kind="project">⌘ 项目讨论</button>
+        <button class="kind-btn" data-kind="proposal">🧩 修改方案</button>
+        <button class="kind-btn" data-kind="decision">✅ 最终结论</button>
+        <button class="kind-btn" data-kind="todo">📌 待办</button>
+        <button class="kind-btn" id="atMuse">@Muse</button>
+        <button class="kind-btn" id="atDots">@Dots</button>
+      </div>
+      <textarea id="input" maxlength="12000" placeholder="随便聊点什么…"></textarea>
+      <div class="compose-foot"><span class="hint">Enter 发送 · Shift+Enter 换行</span><span class="spacer"></span><button class="send" id="send">↑</button></div>
+    </div>
+  </div>
+</section>
+
+<aside class="side right glass">
+  <section class="section">
+    <div class="label">房间概览</div>
+    <div class="metric-grid">
+      <div class="metric"><div class="v" id="mChat">0</div><div class="k">自由聊天</div></div>
+      <div class="metric"><div class="v" id="mProject">0</div><div class="k">项目消息</div></div>
+      <div class="metric"><div class="v" id="mProposal">0</div><div class="k">修改方案</div></div>
+      <div class="metric"><div class="v" id="mDecision">0</div><div class="k">最终结论</div></div>
+    </div>
+  </section>
+  <section class="section"><div class="label">最近结论</div><div class="feed" id="decisions"><div class="offline-note">还没有项目结论。</div></div></section>
+  <section class="section">
+    <div class="label">项目讨论流程</div>
+    <div class="step"><b>01</b>独立检查仓库和现有实现</div>
+    <div class="step"><b>02</b>分别提出问题与修改方案</div>
+    <div class="step"><b>03</b>交叉审查、反驳、补证据</div>
+    <div class="step"><b>04</b>修正分歧并持续收敛</div>
+    <div class="step"><b>05</b>形成最终结论与待办</div>
+  </section>
+</aside>
+</main>
+</div>
+
+<dialog id="settingsDlg">
+<div class="modal">
+  <h2>房间设置</h2>
+  <p>GitHub 项目是可选的。只想让三方自由聊天时，不填仓库也能正常使用。</p>
+  <div class="field"><label>房间名称</label><input id="setRoomTitle" placeholder="例如：归藏共享聊天室"></div>
+  <div class="field"><label>GitHub 仓库地址（可选）</label><input id="setRepo" placeholder="https://github.com/owner/repo"></div>
+  <div class="field"><label>项目讨论目标（可选）</label><textarea id="setObjective" rows="3" placeholder="例如：全面检查当前 UI 与配置管理，讨论完整重构方案。"></textarea></div>
+  <div class="field"><label>Supabase Project URL</label><input id="setSb" placeholder="https://xxxx.supabase.co"></div>
+  <div class="field"><label>Supabase Publishable Key</label><input id="setKey" placeholder="sb_publishable_..."></div>
+  <div class="invite-row"><button class="btn" id="copyMuse2">复制 Muse 邀请</button><button class="btn" id="copyDots2">复制 Dots 邀请</button><button class="btn" id="copyOwner">复制我的房间链接</button></div>
+  <details>
+    <summary>第一次使用 / 升级旧数据库：复制 SQL 到 Supabase SQL Editor 执行</summary>
+    <textarea class="sql" id="sql" readonly></textarea>
+    <div class="invite-row"><button class="btn" id="copySql">复制建表 / 升级 SQL</button></div>
+  </details>
+  <div class="modal-actions"><button class="btn" id="cancelSettings">取消</button><button class="btn dark" id="saveSettings">保存并连接</button></div>
+</div>
+</dialog>
+
+<dialog id="projectDlg">
+<div class="modal">
+  <h2 id="mobileRepoName">当前项目</h2>
+  <p id="mobileRepoUrl">未绑定项目</p>
+  <div class="project-card"><div class="label">项目目标</div><div class="objective" id="mobileObjective"></div></div>
+  <div class="modal-actions"><button class="btn" id="closeProject">关闭</button><a class="btn dark" id="mobileRepoOpen" href="#" target="_blank" rel="noopener">打开 GitHub</a></div>
+</div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import {createClient} from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const qs=new URLSearchParams(location.search);
+function randomRoom(){const a=new Uint8Array(24);crypto.getRandomValues(a);return [...a].map(x=>x.toString(16).padStart(2,"0")).join("")}
+let room=qs.get("room")||randomRoom();
+if(!qs.get("room")){const u=new URL(location.href);u.searchParams.set("room",room);history.replaceState(null,"",u)}
+let cfg=JSON.parse(localStorage.getItem("guizang.room.cfg")||"{}");
+if(qs.get("sb"))cfg.sb=qs.get("sb");
+if(qs.get("key"))cfg.key=qs.get("key");
+if(qs.get("repo")&&!cfg.repo)cfg.repo=qs.get("repo");
+localStorage.setItem("guizang.room.cfg",JSON.stringify(cfg));
+
+const fixedRole=["owner","muse","dots"].includes(qs.get("as"))?qs.get("as"):null;
+let role=fixedRole||localStorage.getItem("guizang.room.role")||"owner";
+let view="chat", composeKind="chat", sb=null, channel=null, messages=[], demo=true;
+const sessionId=sessionStorage.getItem("guizang.presence")||crypto.randomUUID();
+sessionStorage.setItem("guizang.presence",sessionId);
+
+const RI={
+  owner:{name:"我",cls:"owner",letter:"我"},
+  muse:{name:"Muse",cls:"muse",letter:"M"},
+  dots:{name:"Dots",cls:"dots",letter:"D"}
+};
+const KL={chat:"自由聊天",project:"项目讨论",proposal:"修改方案",decision:"最终结论",todo:"待办",discussion:"项目讨论"};
+
+const SQL=`-- Guizang Room · 首次创建或升级旧版都可执行
+create table if not exists public.rooms (
+  room_key text primary key,
+  repo_url text not null default '',
+  title text not null default '归藏共享聊天室',
+  objective text not null default '',
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.messages (
+  id bigint generated by default as identity primary key,
+  room_key text not null,
+  author text not null,
+  role text not null,
+  kind text not null default 'chat',
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists messages_room_created_idx
+on public.messages(room_key, created_at);
+
+alter table public.rooms enable row level security;
+alter table public.messages enable row level security;
+
+drop policy if exists "wr rs" on public.rooms;
+drop policy if exists "wr ri" on public.rooms;
+drop policy if exists "wr ru" on public.rooms;
+drop policy if exists "wr ms" on public.messages;
+drop policy if exists "wr mi" on public.messages;
+drop policy if exists "guizang rooms select" on public.rooms;
+drop policy if exists "guizang rooms insert" on public.rooms;
+drop policy if exists "guizang rooms update" on public.rooms;
+drop policy if exists "guizang messages select" on public.messages;
+drop policy if exists "guizang messages insert" on public.messages;
+
+create policy "guizang rooms select" on public.rooms
+for select to anon, authenticated using (true);
+
+create policy "guizang rooms insert" on public.rooms
+for insert to anon, authenticated with check (char_length(room_key) >= 12);
+
+create policy "guizang rooms update" on public.rooms
+for update to anon, authenticated using (true)
+with check (char_length(room_key) >= 12);
+
+create policy "guizang messages select" on public.messages
+for select to anon, authenticated using (true);
+
+create policy "guizang messages insert" on public.messages
+for insert to anon, authenticated
+with check (
+  char_length(room_key) >= 12
+  and role in ('owner','muse','dots')
+  and kind in ('chat','project','proposal','decision','todo','discussion')
+  and char_length(body) between 1 and 12000
+);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.messages;
+exception when duplicate_object then null;
+end $$;`;
+$("#sql").value=SQL;
+
+function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),1700)}
+function repoShort(u=""){try{const p=new URL(u).pathname.replace(/^\/|\.git$/g,"").split("/");return p.slice(0,2).join("/")||"未绑定 GitHub 项目"}catch{return u||"未绑定 GitHub 项目"}}
+function fmt(t){return new Date(t).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}
+function normalizedKind(k){return k==="discussion"?"project":k}
+function isProjectKind(k){return ["project","proposal","decision","todo","discussion"].includes(k)}
+
+function applyMeta(m={}){
+  cfg.repo=m.repo_url??cfg.repo??"";
+  cfg.title=m.title??cfg.title??"归藏共享聊天室";
+  cfg.objective=m.objective??cfg.objective??"需要讨论项目时再设置目标；自由聊天不受影响。";
+  $("#brandTitle").textContent=cfg.title;
+  $("#brandSub").textContent=cfg.repo?`${repoShort(cfg.repo)} · 自由聊天 + 项目协作`:"自由聊天 · 项目协作 · Muse × Dots";
+  $("#repoName").textContent=repoShort(cfg.repo);
+  $("#repoUrl").textContent=cfg.repo||"不绑定项目也可以自由聊天";
+  $("#objective").textContent=cfg.objective;
+  $("#repoOpen").href=cfg.repo||"#";
+  $("#repoOpen").style.pointerEvents=cfg.repo?"auto":"none";
+  $("#repoOpen").style.opacity=cfg.repo?"1":".45";
+  $("#mobileRepoName").textContent=repoShort(cfg.repo);
+  $("#mobileRepoUrl").textContent=cfg.repo||"未绑定项目";
+  $("#mobileObjective").textContent=cfg.objective;
+  $("#mobileRepoOpen").href=cfg.repo||"#";
+}
+
+function setRole(r){
+  if(fixedRole&&r!==fixedRole)return;
+  role=r;localStorage.setItem("guizang.room.role",r);
+  $$(".role-switch button").forEach(b=>{
+    b.classList.toggle("on",b.dataset.role===r);
+    if(fixedRole){b.disabled=b.dataset.role!==r;b.style.opacity=b.dataset.role===r?"1":".34"}
+  });
+  updatePlaceholder();
+  if(channel&&!demo)trackPresence();
+}
+
+function setView(v){
+  view=v;
+  $$(".channel,.tab").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
+  const map={
+    chat:["自由聊天","想聊什么都可以，不需要绑定 GitHub 项目。"],
+    project:["项目协作",cfg.repo?`围绕 ${repoShort(cfg.repo)} 自主分析、讨论和收敛方案。`:"可以先讨论方案，GitHub 项目稍后再绑定。"],
+    proposal:["修改方案","集中查看和提交具体的修改方向与实现建议。"],
+    decision:["最终结论","查看已经收敛、可以执行的结论。"],
+    todo:["待办","整理下一步需要执行和验证的事项。"],
+    all:["全部消息","自由聊天和项目协作都在同一个共享房间里。"]
+  };
+  $("#roomTitle").textContent=map[v][0];$("#roomSub").textContent=map[v][1];
+  $("#autonomy").hidden=!["project","proposal","decision","todo"].includes(v);
+  if(v==="chat")setComposeKind("chat");
+  else if(v==="project")setComposeKind("project");
+  else if(["proposal","decision","todo"].includes(v))setComposeKind(v);
+  render();
+}
+
+function setComposeKind(k){
+  composeKind=k;
+  $$(".kind-btn[data-kind]").forEach(b=>b.classList.toggle("on",b.dataset.kind===k));
+  updatePlaceholder();
+}
+function updatePlaceholder(){
+  const who=RI[role].name;
+  const p={
+    chat:`以 ${who} 身份随便聊点什么…`,
+    project:`以 ${who} 身份讨论项目、回应对方或补充代码分析…`,
+    proposal:`以 ${who} 身份提交具体修改方案、依据和风险…`,
+    decision:`发布已经收敛的最终结论…`,
+    todo:`整理明确的下一步待办…`
+  };
+  $("#input").placeholder=p[composeKind]||p.chat;
+}
+
+function visibleMessages(){
+  if(view==="all")return messages;
+  if(view==="chat")return messages.filter(m=>normalizedKind(m.kind)==="chat");
+  if(view==="project")return messages.filter(m=>isProjectKind(m.kind));
+  return messages.filter(m=>normalizedKind(m.kind)===view);
+}
+
+function render(){
+  const list=visibleMessages(), box=$("#messages");
+  if(!list.length){
+    const empties={
+      chat:["💬","这里还很安静","直接发消息就行。Muse 和 Dots 也可以在这里自由聊任何话题。"],
+      project:["⌘","开始项目协作","设置项目目标后，让 Muse 和 Dots 各自检查仓库并持续互相讨论。"],
+      proposal:["🧩","还没有修改方案","项目讨论中形成的具体方案可以集中发到这里。"],
+      decision:["✅","还没有最终结论","等分歧收敛后，把可以执行的方案发布为最终结论。"],
+      todo:["📌","还没有待办","把接下来需要修改、验证和复查的事项整理到这里。"],
+      all:["∞","还没有消息","自由聊天或项目讨论都可以从这里开始。"]
+    }[view];
+    box.innerHTML=`<div class="empty"><div><div class="emoji">${empties[0]}</div><strong>${empties[1]}</strong>${empties[2]}</div></div>`;
+  }else{
+    box.innerHTML=list.map(m=>{
+      const r=RI[m.role]||RI.owner, mine=m.role===role, k=normalizedKind(m.kind);
+      return `<article class="msg ${k} ${mine?"mine":""}">
+        <div class="avatar ${r.cls}">${r.letter}</div>
+        <div class="bubble-wrap">
+          <div class="msg-meta"><span class="author">${esc(m.author||r.name)}</span><span class="kind">${esc(KL[m.kind]||KL[k]||"消息")}</span><span>${fmt(m.created_at)}</span></div>
+          <div class="bubble">${esc(m.body)}</div>
+          <div class="msg-actions"><button data-copy="${encodeURIComponent(m.body)}">复制</button></div>
+        </div>
+      </article>`;
+    }).join("");
+    requestAnimationFrame(()=>box.scrollTop=box.scrollHeight);
+  }
+  const chat=messages.filter(m=>normalizedKind(m.kind)==="chat").length;
+  const proj=messages.filter(m=>isProjectKind(m.kind)).length;
+  const prop=messages.filter(m=>normalizedKind(m.kind)==="proposal").length;
+  const dec=messages.filter(m=>normalizedKind(m.kind)==="decision").length;
+  const todo=messages.filter(m=>normalizedKind(m.kind)==="todo").length;
+  $("#chatCount").textContent=chat;$("#projectCount").textContent=proj;$("#allCount").textContent=messages.length;
+  $("#mChat").textContent=chat;$("#mProject").textContent=proj;$("#mProposal").textContent=prop;$("#mDecision").textContent=dec;
+  const ds=messages.filter(m=>normalizedKind(m.kind)==="decision").slice(-4).reverse();
+  $("#decisions").innerHTML=ds.length?ds.map(d=>`<div class="feed-item"><div class="who">${esc(d.author)} · ${fmt(d.created_at)}</div>${esc(d.body.slice(0,220))}${d.body.length>220?"…":""}</div>`).join(""):`<div class="offline-note">还没有项目结论。</div>`;
+}
+$("#messages").addEventListener("click",async e=>{
+  const b=e.target.closest("[data-copy]");if(!b)return;
+  await navigator.clipboard.writeText(decodeURIComponent(b.dataset.copy));toast("消息已复制");
+});
+
+async function trackPresence(){
+  if(!channel)return;
+  try{await channel.track({role,name:RI[role].name,session:sessionId,online_at:new Date().toISOString()})}catch{}
+}
+function syncPresence(){
+  if(!channel)return;
+  const state=channel.presenceState(), online={owner:false,muse:false,dots:false};
+  Object.values(state).flat().forEach(p=>{if(p?.role in online)online[p.role]=true});
+  Object.entries(online).forEach(([r,on])=>document.querySelector(`[data-presence="${r}"]`)?.classList.toggle("on",on));
+}
+
+async function connect(){
+  if(channel&&sb)try{await sb.removeChannel(channel)}catch{}
+  if(!cfg.sb||!cfg.key){
+    demo=true;sb=null;messages=JSON.parse(localStorage.getItem(`guizang.room.messages.${room}`)||"[]");
+    $("#connDot").classList.remove("on");$("#connText").textContent="本机模式";applyMeta();render();return;
+  }
+  try{
+    demo=false;sb=createClient(cfg.sb,cfg.key);
+    const {data:rm,error:re}=await sb.from("rooms").select("*").eq("room_key",room).maybeSingle();
+    if(re)throw re;
+    if(rm)applyMeta(rm);else{
+      const row={room_key:room,repo_url:cfg.repo||"",title:cfg.title||"归藏共享聊天室",objective:cfg.objective||""};
+      const {error}=await sb.from("rooms").insert(row);if(error)throw error;applyMeta(row);
+    }
+    const {data,error}=await sb.from("messages").select("*").eq("room_key",room).order("created_at",{ascending:true}).limit(1500);
+    if(error)throw error;messages=data||[];render();
+    channel=sb.channel(`guizang-${room}`,{config:{presence:{key:sessionId}}})
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`room_key=eq.${room}`},p=>{
+        if(!messages.some(m=>m.id===p.new.id)){messages.push(p.new);render()}
+      })
+      .on("presence",{event:"sync"},syncPresence)
+      .subscribe(async status=>{
+        const on=status==="SUBSCRIBED";$("#connDot").classList.toggle("on",on);$("#connText").textContent=on?"实时在线":"连接中";
+        if(on)await trackPresence();
+      });
+  }catch(e){
+    console.error(e);$("#connDot").classList.remove("on");$("#connText").textContent="连接失败";toast("连接失败：请检查 Supabase 配置，并执行升级 SQL");
+  }
+}
+
+async function send(){
+  const body=$("#input").value.trim();if(!body)return;
+  const r=RI[role], row={room_key:room,author:r.name,role,kind:composeKind,body,created_at:new Date().toISOString()};
+  $("#input").value="";
+  if(demo||!sb){
+    row.id=`local-${Date.now()}-${Math.random()}`;messages.push(row);
+    localStorage.setItem(`guizang.room.messages.${room}`,JSON.stringify(messages.slice(-1500)));render();toast("本机模式：配置 Supabase 后三方可实时同步");return;
+  }
+  const {error}=await sb.from("messages").insert({room_key:room,author:row.author,role:row.role,kind:row.kind,body:row.body});
+  if(error){console.error(error);$("#input").value=body;toast("发送失败；如果是旧数据库，请在设置里重新执行升级 SQL")}
+}
+
+function inviteUrl(asRole){
+  const u=new URL(location.href);u.searchParams.set("room",room);
+  if(asRole)u.searchParams.set("as",asRole);else u.searchParams.delete("as");
+  if(cfg.sb)u.searchParams.set("sb",cfg.sb);if(cfg.key)u.searchParams.set("key",cfg.key);if(cfg.repo)u.searchParams.set("repo",cfg.repo);
+  return u.toString();
+}
+async function copyInvite(r){await navigator.clipboard.writeText(inviteUrl(r));toast(`${r==="muse"?"Muse":r==="dots"?"Dots":"房间"}链接已复制`)}
+
+$$(".channel,.tab").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.view)));
+$$(".role-switch button").forEach(b=>b.addEventListener("click",()=>setRole(b.dataset.role)));
+$$(".kind-btn[data-kind]").forEach(b=>b.addEventListener("click",()=>setComposeKind(b.dataset.kind)));
+$("#send").onclick=send;
+$("#input").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});
+$("#atMuse").onclick=()=>{$("#input").value+=($("#input").value?" ":"")+"@Muse ";$("#input").focus()};
+$("#atDots").onclick=()=>{$("#input").value+=($("#input").value?" ":"")+"@Dots ";$("#input").focus()};
+$("#mentionBoth").onclick=()=>{$("#input").value+=($("#input").value?" ":"")+"@Muse @Dots ";$("#input").focus()};
+$("#copyMuse").onclick=()=>copyInvite("muse");$("#copyDots").onclick=()=>copyInvite("dots");
+$("#copyMuse2").onclick=()=>copyInvite("muse");$("#copyDots2").onclick=()=>copyInvite("dots");$("#copyOwner").onclick=()=>copyInvite(null);
+
+const sd=$("#settingsDlg");
+function openSettings(){
+  $("#setRoomTitle").value=cfg.title||"归藏共享聊天室";$("#setRepo").value=cfg.repo||"";$("#setObjective").value=cfg.objective||"";
+  $("#setSb").value=cfg.sb||"";$("#setKey").value=cfg.key||"";sd.showModal();
+}
+$("#settingsBtn").onclick=openSettings;$("#editProject").onclick=openSettings;$("#cancelSettings").onclick=()=>sd.close();
+$("#copySql").onclick=async()=>{await navigator.clipboard.writeText(SQL);toast("建表 / 升级 SQL 已复制")};
+$("#saveSettings").onclick=async()=>{
+  cfg.title=$("#setRoomTitle").value.trim()||"归藏共享聊天室";cfg.repo=$("#setRepo").value.trim();
+  cfg.objective=$("#setObjective").value.trim()||"需要讨论项目时再设置目标；自由聊天不受影响。";
+  cfg.sb=$("#setSb").value.trim();cfg.key=$("#setKey").value.trim();localStorage.setItem("guizang.room.cfg",JSON.stringify(cfg));
+  sd.close();applyMeta();await connect();
+  if(sb){const {error}=await sb.from("rooms").upsert({room_key:room,repo_url:cfg.repo,title:cfg.title,objective:cfg.objective,updated_at:new Date().toISOString()},{onConflict:"room_key"});if(error)console.error(error)}
+  setView(view);toast("设置已保存");
+};
+
+const pd=$("#projectDlg");$("#mobileProject").onclick=()=>pd.showModal();$("#closeProject").onclick=()=>pd.close();
+
+setRole(role);applyMeta();setView("chat");connect();
+</script>
+</body>
+</html>
