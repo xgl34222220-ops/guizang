@@ -727,7 +727,7 @@ async function connect(){
       const {error}=await sb.from("rooms").insert(row);if(error)throw error;applyMeta(row);
     }
     const {data,error}=await sb.from("messages").select("*").eq("room_key",room).order("created_at",{ascending:true}).limit(1500);
-    if(error)throw error;messages=data||[];render();
+    if(error)throw error;messages=data||[];await loadCollaborationData();render();
     channel=sb.channel(`guizang-${room}`,{config:{presence:{key:sessionId},broadcast:{self:false}}})
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`room_key=eq.${room}`},p=>{
         if(!messages.some(m=>m.id===p.new.id)){
@@ -735,6 +735,22 @@ async function connect(){
           if(!stick && p.new.role!==role){unread++;showUnread()}
           render();
         }
+      })
+      .on("postgres_changes",{event:"*",schema:"public",table:"message_reactions",filter:"room_key=eq."+room},p=>{
+        if(p.eventType==="INSERT"&&!reactions.some(x=>x.id===p.new.id))reactions.push(p.new);
+        if(p.eventType==="DELETE")reactions=reactions.filter(x=>x.id!==p.old.id);
+        render();
+      })
+      .on("postgres_changes",{event:"*",schema:"public",table:"pinned_messages",filter:"room_key=eq."+room},p=>{
+        if(p.eventType==="INSERT"&&!pins.some(x=>x.id===p.new.id))pins.push(p.new);
+        if(p.eventType==="DELETE")pins=pins.filter(x=>x.id!==p.old.id);
+        render();
+      })
+      .on("postgres_changes",{event:"*",schema:"public",table:"tasks",filter:"room_key=eq."+room},p=>{
+        if(p.eventType==="INSERT"&&!tasks.some(x=>x.id===p.new.id))tasks.unshift(p.new);
+        if(p.eventType==="UPDATE")tasks=tasks.map(x=>x.id===p.new.id?p.new:x);
+        if(p.eventType==="DELETE")tasks=tasks.filter(x=>x.id!==p.old.id);
+        renderCollaboration();
       })
       .on("broadcast",{event:"typing"},({payload})=>{if(payload?.active)noteTyping(payload.role)})
       .on("presence",{event:"sync"},syncPresence)
@@ -790,8 +806,34 @@ function applyObserver(){
 $("#observerBtn").onclick=()=>{observer=!observer;applyObserver();toast(observer?"已进入旁观模式":"已退出旁观模式")};
 $("#mobileObserver").onclick=()=>{observer=!observer;applyObserver();toast(observer?"已进入旁观模式":"已退出旁观模式")};
 
+const td=$("#tasksDlg"),pnd=$("#pinsDlg");
+function openTasks(){renderTaskBoard();td.showModal()}
+function openPins(){renderPinsList();pnd.showModal()}
+$("#tasksBtn").onclick=openTasks;$("#mobileTasks").onclick=openTasks;$("#openTasksSide").onclick=openTasks;
+$("#pinsBtn").onclick=openPins;$("#openPinsSide").onclick=openPins;
+$("#closeTasks").onclick=()=>td.close();$("#closePins").onclick=()=>pnd.close();$("#createTaskBtn").onclick=createTask;
+$("#taskBoard").addEventListener("click",async e=>{
+  const st=e.target.closest("[data-task-status]");if(st){const parts=st.dataset.taskStatus.split(":");await setTaskStatus(parts[0],parts[1]);return}
+  const del=e.target.closest("[data-task-delete]");if(del){await deleteTask(del.dataset.taskDelete);return}
+});
+document.addEventListener("click",async e=>{
+  const jump=e.target.closest("[data-jump-message]");if(jump){if(pnd.open)pnd.close();if(td.open)td.close();setView("all");requestAnimationFrame(()=>document.querySelector('[data-msg-id="'+CSS.escape(jump.dataset.jumpMessage)+'"]')?.scrollIntoView({behavior:"smooth",block:"center"}));return}
+  const unpin=e.target.closest("[data-unpin]");if(unpin&&sb){const {error}=await sb.from("pinned_messages").delete().eq("id",Number(unpin.dataset.unpin));if(error)toast("取消置顶失败");return}
+  const open=e.target.closest("[data-open-task]");if(open){openTasks();return}
+});
+
 $("#exportBtn").onclick=()=>{
   const lines=[`# ${cfg.title||"归藏共享聊天室"}`,`\n房间：${room}`,cfg.repo?`项目：${cfg.repo}`:"",cfg.objective?`目标：${cfg.objective}`:"","\n---\n"];
+  if(tasks.length){
+    lines.push("\n## 共享任务\n");
+    tasks.forEach(t=>lines.push(`- [${t.status==="done"?"x":" "}] ${t.title} · ${taskStatusLabel(t.status)} · @${taskAssigneeLabel(t.assignee)}${t.detail?"\\n  "+t.detail.replace(/\\n/g," "):""}`));
+    lines.push("\n---\n");
+  }
+  if(pins.length){
+    lines.push("\n## 置顶重点\n");
+    pins.forEach(p=>{const m=messages.find(x=>String(x.id)===String(p.message_id));if(m)lines.push(`- ${m.author||RI[m.role]?.name||m.role}: ${m.body.replace(/\\n/g," ")}`)});
+    lines.push("\n---\n");
+  }
   messages.forEach(m=>lines.push(`## ${m.author||RI[m.role]?.name||m.role} · ${KL[m.kind]||m.kind} · ${new Date(m.created_at).toLocaleString()}\n\n${m.body}\n`));
   const blob=new Blob([lines.filter(Boolean).join("\n")],{type:"text/markdown;charset=utf-8"}),a=document.createElement("a");
   a.href=URL.createObjectURL(blob);a.download=`guizang-room-${room.slice(0,8)}.md`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast("聊天记录已导出");
@@ -828,6 +870,13 @@ $("#saveSettings").onclick=async()=>{
 };
 
 const pd=$("#projectDlg");$("#mobileProject").onclick=()=>pd.showModal();$("#closeProject").onclick=()=>pd.close();
+
+window.addEventListener("offline",()=>{$("#connDot").classList.remove("on");$("#connText").textContent="网络断开";toast("网络已断开，恢复后会重新连接")});
+window.addEventListener("online",()=>{$("#connText").textContent="重新连接";connect()});
+document.addEventListener("keydown",e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();$("#searchBtn").click()}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="j"){e.preventDefault();openTasks()}
+});
 
 setRole(role);applyMeta();setView("chat");connect();
 </script>
