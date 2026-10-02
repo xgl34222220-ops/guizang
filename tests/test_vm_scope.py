@@ -147,3 +147,29 @@ class VmScopeTests(unittest.TestCase):
         self.assertEqual(runner.terminate_and_reap(child),-9)
         child.terminate.assert_called_once();child.kill.assert_called_once()
         self.assertEqual([call.kwargs['timeout'] for call in child.wait.call_args_list],[20,10])
+
+    def test_avd_identity_empty_console_requires_exact_boot_property(self):
+        for console in ('', runner.AVD_NAME, runner.AVD_NAME + '\nOK'):
+            adb = Mock(); adb.command.return_value = console
+            adb.shell.return_value = runner.AVD_NAME
+            self.assertEqual(runner.verify_avd_identity(adb)['boot_property'], runner.AVD_NAME)
+            adb.shell.assert_called_once_with('getprop', 'ro.boot.qemu.avd_name')
+
+    def test_avd_identity_missing_or_conflicting_evidence_stops(self):
+        for console, prop in [('', ''), ('', 'other'), ('other', runner.AVD_NAME),
+                              ('KO: denied', runner.AVD_NAME), ('OK', runner.AVD_NAME),
+                              (runner.AVD_NAME, 'other'), (runner.AVD_NAME + '\nextra', runner.AVD_NAME)]:
+            adb = Mock(); adb.command.return_value = console; adb.shell.return_value = prop
+            with self.assertRaises(vm.ExperimentFailure): runner.verify_avd_identity(adb)
+            self.assertFalse(any(call.args == ('root',) for call in adb.command.call_args_list))
+
+    def test_avd_console_error_does_not_fallback_or_request_root(self):
+        import subprocess
+        for error in (vm.AdbFailure(['emu', 'avd', 'name'], '', 'permission denied'),
+                      subprocess.TimeoutExpired('adb emu avd name', 15)):
+            adb = Mock(); adb.command.side_effect = error
+            with self.assertRaises(type(error)):
+                runner.verify_avd_identity(adb)
+            adb.shell.assert_not_called()
+            self.assertEqual(adb.command.call_args_list[0].args, ('emu', 'avd', 'name'))
+            self.assertEqual(adb.command.call_count, 1)

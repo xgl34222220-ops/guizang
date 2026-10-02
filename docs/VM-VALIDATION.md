@@ -64,3 +64,5 @@ cgroup.freeze只是请求值，cgroup.events frozen才是完成状态。freezer�
 先只读探测，再进行常规冻结/唤醒，最后进行协调器退出和独立watchdog恢复。第二轮只复用本次安装回执与完全相同APK哈希，禁止覆盖预存App。结束时TERM/wait/KILL/wait仅针对自有直接子进程，验证回收、删除带独占标记的临时AVD目录，并比较KVM前后元数据。没有Magisk、真实手机或系统应用动作。
 
 对应新增host回归覆盖调试Root closed重连与拒绝、安装回执/哈希、正向日志、退出记录、清理所有权和KVM不变；host通过不等于真实实验通过。
+
+AVD身份闸门同时核对只读 `ro.boot.qemu.avd_name`，必须精确等于本次创建的名称。`adb emu avd name` 成功但stdout为空时，保留原始命令证据并使用该boot属性；不再对空行列表取首项。非空console响应必须为相同名称（可带末行 `OK`），任何冲突、拒绝、超时或缺失boot属性均在Root/安装前停止。此修正不改变镜像/架构/调试身份、独占端口和全新AVD的其他闸门。

@@ -26,6 +26,20 @@ IMAGE = 'system-images;android-35;google_apis;x86_64'
 SERIAL = 'emulator-5554'
 
 
+def verify_avd_identity(adb):
+    # Official Android emulator tools use this boot property when console AVD
+    # lookup is empty. A conflicting response is never treated as unavailable.
+    console = adb.command('emu', 'avd', 'name')
+    lines = console.splitlines()
+    if lines and lines not in ([AVD_NAME], [AVD_NAME, 'OK']):
+        raise vm.ExperimentFailure('Unexpected or conflicting AVD console identity')
+    property_name = adb.shell('getprop', 'ro.boot.qemu.avd_name')
+    if property_name != AVD_NAME:
+        raise vm.ExperimentFailure('Connected emulator boot property is not this owned AVD')
+    return {'console_response': console, 'boot_property': property_name,
+            'console_available': bool(lines)}
+
+
 def enable_debug_root(adb):
     # Some official userdebug adbd versions close the request while restarting.
     # Never interpret an authorization/permission error as a transient closure.
@@ -230,9 +244,7 @@ def run(args):
             report['guest_properties'] = {name: adb.shell('getprop', name) for name in expected}
             if report['guest_properties'] != expected:
                 raise vm.ExperimentFailure('Unexpected emulator/image/debug identity; no root requested')
-            report['avd_console_name'] = adb.command('emu', 'avd', 'name')
-            if report['avd_console_name'].splitlines()[0] != AVD_NAME:
-                raise vm.ExperimentFailure('Connected emulator is not this owned AVD')
+            report['avd_identity'] = verify_avd_identity(adb)
             report['debug_root_response'] = enable_debug_root(adb)
             report['boot_id'] = adb.boot_id()
             aapt = find_sdk_tool(sdk, 'build-tools', 'aapt')
