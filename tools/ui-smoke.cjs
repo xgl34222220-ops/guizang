@@ -34,6 +34,10 @@ const server=http.createServer((req,res)=>{ const asset=assets[req.url]; if(!ass
           assert.ok(dock.x>0 && dock.x+dock.width<viewport.width,'floating dock keeps side gutters');
           assert.ok(dock.y+dock.height<viewport.height,'floating dock keeps bottom gutter');
           assert.equal(await page.locator('nav').evaluate(el=>getComputedStyle(el).backdropFilter.includes('blur')),true,'dock uses translucent blur');
+          if(viewport.height>=800){
+            const capabilities=await page.locator('.capability-list').boundingBox();
+            assert.ok(capabilities.y+capabilities.height<=dock.y,'capability values clear dock on standard phone');
+          }
           for(const target of await page.locator('nav a').all()){
             const box=await target.boundingBox();
             assert.ok(box.width>=44 && box.height>=44,'navigation touch target is at least 44px');
@@ -41,6 +45,14 @@ const server=http.createServer((req,res)=>{ const asset=assets[req.url]; if(!ass
         }
         await page.screenshot({path:path.join(out,`${viewport.width}-${section}.png`),fullPage:false});
         await page.screenshot({path:path.join(out,`${viewport.width}-${section}-full.png`),fullPage:true});
+        if(section==='overview' && viewport.width<=700){
+          await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+          const note=await page.locator('.console-footnote').boundingBox();
+          const dock=await page.locator('nav').boundingBox();
+          assert.ok(note.y+note.height<dock.y,'last content scrolls fully clear of dock');
+          await page.screenshot({path:path.join(out,`${viewport.width}-overview-bottom.png`)});
+          await page.evaluate(()=>window.scrollTo(0,0));
+        }
       }
       await page.locator('[data-page="overview"]').click();
       await page.getByRole('button',{name:'检查连接',exact:true}).click();
