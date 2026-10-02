@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: guizang-gemini-gateway
+    runtime: docker
+    plan: 0.5c-512mb
+    dockerfilePath: ./gemini-gateway/Dockerfile
+    dockerContext: ./gemini-gateway
+    healthCheckPath: /healthz
+    envVars:
+      - key: GEMINI_API_KEYS
+        sync: false
+      - key: ADMIN_TOKEN
+        generateValue: true
+      - key: STATE_PATH
+        value: /data/gateway.json
+      - key: MODEL_ALIASES
+        value: '{"gemini":"gemini-3.1-pro-preview","gemini-fast":"gemini-3.8-flash"}'
+    disk:
+      name: gateway-data
+      mountPath: /data
+      sizeGB: 1
