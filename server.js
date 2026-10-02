@@ -82,6 +82,17 @@ db.exec(`
   ON messages(room_key, id);
 `);
 
+// Additive migration: existing rows and legacy clients keep a NULL request ID.
+db.transaction(() => {
+  if (!db.prepare('PRAGMA table_info(messages)').all().some(column => column.name === 'client_request_id')) {
+    db.exec('ALTER TABLE messages ADD COLUMN client_request_id TEXT');
+  }
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_request
+    ON messages(room_key, role, client_request_id);
+  `);
+}).immediate();
+
 const roomGet = db.prepare('SELECT * FROM rooms WHERE room_key = ?');
 const roomInsert = db.prepare(`
   INSERT OR IGNORE INTO rooms(room_key, title, repo_url, objective, updated_at)
@@ -101,13 +112,29 @@ const historyGet = db.prepare(`
   FROM messages WHERE room_key = ? ORDER BY id DESC LIMIT ?
 `);
 const messageInsert = db.prepare(`
-  INSERT INTO messages(room_key, author, role, kind, body, created_at)
-  VALUES (@room_key, @author, @role, @kind, @body, @created_at)
+  INSERT INTO messages(room_key, author, role, kind, body, created_at, client_request_id)
+  VALUES (@room_key, @author, @role, @kind, @body, @created_at, @client_request_id)
+  ON CONFLICT(room_key, role, client_request_id) DO NOTHING
 `);
 const messageById = db.prepare(`
   SELECT id, room_key, author, role, kind, body, created_at
   FROM messages WHERE id = ?
 `);
+
+const messageByRequest = db.prepare(`
+  SELECT id, room_key, author, role, kind, body, created_at
+  FROM messages WHERE room_key = ? AND role = ? AND client_request_id = ?
+`);
+// The UNIQUE index is the authority even for simultaneous connections/processes.
+// Never overwrite a stored message when the same request ID has different content.
+const createMessage = db.transaction(row => {
+  const result = messageInsert.run(row);
+  const inserted = result.changes === 1;
+  const message = inserted ? messageById.get(result.lastInsertRowid)
+    : messageByRequest.get(row.room_key, row.role, row.client_request_id);
+  if (!message || message.body !== row.body || message.kind !== row.kind) return { conflict: true };
+  return { message, inserted };
+});
 
 function ensureRoom(roomKey) {
   roomInsert.run(roomKey, new Date().toISOString());
@@ -232,9 +259,15 @@ io.on('connection', (socket) => {
       const room = socket.data.room;
       if (!room) return ack({ ok: false, error: 'not_in_room' });
 
+      if (payload.room !== undefined && payload.room !== room) return ack({ ok: false, error: 'room_changed' });
+      const requestId = payload.clientRequestId ?? null;
+      if (requestId !== null && (typeof requestId !== 'string' || !/^[a-zA-Z0-9_-]{16,128}$/.test(requestId))) {
+        return ack({ ok: false, error: 'invalid_request_id' });
+      }
       const kind = ['chat', 'project', 'proposal', 'decision', 'todo'].includes(payload.kind)
         ? payload.kind : 'chat';
-      const body = cleanText(payload.body, 12000);
+      const body = String(payload.body ?? '').trim();
+      if (body.length > 12000) return ack({ ok: false, error: 'message_too_long' });
       if (!body) return ack({ ok: false, error: 'empty_message' });
 
       const role = socket.data.role;
@@ -245,13 +278,14 @@ io.on('connection', (socket) => {
         role,
         kind,
         body,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        client_request_id: requestId
       };
 
-      const result = messageInsert.run(row);
-      const message = messageById.get(result.lastInsertRowid);
-      io.to(room).emit('message:new', message);
-      ack({ ok: true, id: message.id });
+      const result = createMessage.immediate(row);
+      if (result.conflict) return ack({ ok: false, error: 'request_conflict' });
+      if (result.inserted) io.to(room).emit('message:new', result.message);
+      ack({ ok: true, id: result.message.id, duplicate: !result.inserted });
     } catch (error) {
       ack({ ok: false, error: 'send_failed' });
     }

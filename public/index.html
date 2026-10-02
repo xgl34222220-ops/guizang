@@ -192,7 +192,7 @@ const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const qs=new URLSearchParams(location.search);
 const room=/^[a-zA-Z0-9_-]{1,64}$/.test(qs.get("room")||"")?qs.get("room"):"main";
 let token=qs.get("token")||localStorage.getItem("guizang.token")||"";
-let role=null,meta={},messages=[],view="chat",kind="chat",socket=null,replyTo=null,observer=localStorage.getItem("guizang.observer")==="1",unread=0,typingTimer=null,sending=false,roomReady=false;
+let role=null,meta={},messages=[],view="chat",kind="chat",socket=null,replyTo=null,observer=localStorage.getItem("guizang.observer")==="1",unread=0,typingTimer=null,sending=false,roomReady=false,pendingSend=null,draftScope=null;
 const R={owner:{name:"我",cls:"owner",letter:"我"},muse:{name:"Muse",cls:"muse",letter:"M"},dots:{name:"Dots",cls:"dots",letter:"D"}};
 const K={chat:"自由聊天",project:"项目讨论",proposal:"修改方案",decision:"最终结论",todo:"待办"};
 function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
@@ -219,7 +219,7 @@ function setView(v){
   $("#roomTitle").textContent=map[v][0];$("#roomSub").textContent=map[v][1];$("#autonomy").hidden=!["project","proposal","decision","todo"].includes(v);
   if(v!=="all")setKind(v==="chat"?"chat":v);render();
 }
-function setKind(k){kind=k;$$("[data-kind]").forEach(b=>b.classList.toggle("on",b.dataset.kind===k));$("#input").placeholder=k==="chat"?"随便聊点什么…":"围绕项目继续讨论、回应或补充…"}
+function setKind(k){kind=k;$$("[data-kind]").forEach(b=>b.classList.toggle("on",b.dataset.kind===k));$("#input").placeholder=k==="chat"?"随便聊点什么…":"围绕项目继续讨论、回应或补充…";saveDraft()}
 function visible(){if(view==="all")return messages;if(view==="project")return messages.filter(m=>isProject(m.kind));return messages.filter(m=>m.kind===view)}
 function render(){
   let list=visible(),b=$("#messages");
@@ -241,13 +241,41 @@ async function connect(){
   socket=io({auth:{token},transports:["websocket","polling"]});
   socket.on("connect",()=>{roomReady=false;$("#dot").classList.add("on");$("#conn").textContent="实时在线";socket.emit("room:join",{room})});
   socket.on("connect_error",()=>{showAccess("邀请链接无效，或者服务器暂时不可用。请让房间所有者重新复制邀请链接。");$("#conn").textContent="连接失败"});
-  socket.on("session",s=>{role=s.role;applyRole();hideAccess()});
-  socket.on("room:state",s=>{roomReady=true;meta=s.meta||{};messages=s.messages||[];applyMeta();render()});
+  socket.on("session",s=>{role=s.role;restoreDraft();applyRole();hideAccess()});
+  socket.on("room:state",s=>{if(s.room!==room)return;roomReady=true;meta=s.meta||{};messages=[...new Map((s.messages||[]).filter(m=>m.room_key===room).map(m=>[m.id,m])).values()];applyMeta();render()});
   socket.on("room:meta",m=>{meta=m||{};applyMeta();setView(view)});
-  socket.on("message:new",m=>{if(messages.some(x=>x.id===m.id))return;let stick=nearBottom();messages.push(m);if(!stick&&m.role!==role){unread++;$("#jump").hidden=false;$("#jump").textContent=unread+" 条新消息 ↓"}render()});
+  socket.on("message:new",m=>{if(m.room_key!==room)return;if(messages.some(x=>x.id===m.id))return;let stick=nearBottom();messages.push(m);if(!stick&&m.role!==role){unread++;$("#jump").hidden=false;$("#jump").textContent=unread+" 条新消息 ↓"}render()});
   socket.on("presence",updatePresence);
   socket.on("typing",p=>{if(!p.active||p.role===role)return;$("#typing").hidden=false;$("#typing").textContent=(R[p.role]?.name||p.role)+" 正在输入…";clearTimeout(typingTimer);typingTimer=setTimeout(()=>$("#typing").hidden=true,1800)});
   socket.on("disconnect",()=>{roomReady=false;$("#dot").classList.remove("on");$("#conn").textContent="重新连接中"});
+}
+// Per-tab drafts are scoped to the room and authenticated identity; never auto-send.
+function draftKey(){return role?"guizang.draft.v1:"+room+":"+role:null}
+function saveDraft(){
+  const key=draftKey();if(!key||draftScope!==key)return;
+  try{
+    const value={text:$("#input").value,kind,reply:replyTo,pending:pendingSend};
+    if(!value.text&&!value.reply&&!value.pending)sessionStorage.removeItem(key);
+    else sessionStorage.setItem(key,JSON.stringify(value));
+  }catch{} // Storage can be unavailable; the current in-memory draft still works.
+}
+function restoreDraft(){
+  const key=draftKey();if(!key||draftScope===key)return;draftScope=key;
+  try{
+    const value=JSON.parse(sessionStorage.getItem(key)||"null");
+    if(!value||typeof value.text!=="string")return;
+    $("#input").value=value.text;
+    kind=Object.hasOwn(K,value.kind)?value.kind:"chat";
+    replyTo=value.reply&&typeof value.reply.body==="string"?value.reply:null;
+    const p=value.pending;
+    pendingSend=p&&p.room===room&&p.role===role&&typeof p.body==="string"&&Object.hasOwn(K,p.kind)&&typeof p.clientRequestId==="string"&&/^[a-zA-Z0-9_-]{16,128}$/.test(p.clientRequestId)?p:null;
+    if(replyTo){$("#replyText").textContent="回复 "+(replyTo.author||R[replyTo.role]?.name||"消息")+"："+replyTo.body.replace(/\s+/g," ").slice(0,120);$("#reply").hidden=false}
+    setKind(kind);
+  }catch{}
+}
+function newRequestId(){
+  const bytes=new Uint8Array(16);crypto.getRandomValues(bytes);
+  return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("");
 }
 function send(){
   if(sending||observer)return;
@@ -256,22 +284,29 @@ function send(){
   if(!socket?.connected||!roomReady){toast("尚未连接房间，内容已保留");return}
   if(capturedReply)body="↩ 回复 "+(capturedReply.author||R[capturedReply.role]?.name||"消息")+"\n> "+String(capturedReply.body||"").replace(/\n/g," ").slice(0,260)+"\n\n"+body;
   if(body.length>12000){toast("正文和引用合计不能超过12000字，请缩短后发送");return}
-  sending=true;$("#send").disabled=true;
+  // An unchanged unconfirmed draft is the same logical send, even after reconnect.
+  if(!pendingSend||pendingSend.room!==room||pendingSend.role!==role||pendingSend.kind!==kind||pendingSend.body!==body){
+    pendingSend={room,role,kind,body,clientRequestId:newRequestId()};
+  }
+  const attempt=pendingSend,capturedRoom=room,capturedSocket=socket;
+  saveDraft();sending=true;$("#send").disabled=true;
   let settled=false;
   const finish=(error,res)=>{
     if(settled)return;settled=true;sending=false;$("#send").disabled=false;
-    if(error||!res?.ok){toast("发送未确认，内容已保留；请先核对消息再重试");return}
+    if(error||!res?.ok){saveDraft();toast(res?.error==="request_conflict"?"请求编号与原消息冲突，正文已保留，请核对内容":"发送未确认，内容已保留；可手动重试");return}
+    if(pendingSend===attempt)pendingSend=null;
+    if(room!==capturedRoom||socket!==capturedSocket){saveDraft();return}
     if(input.value===draft)input.value="";
     if(replyTo===capturedReply){replyTo=null;$("#reply").hidden=true}
-    if(socket?.connected)socket.emit("typing",{active:Boolean(input.value.trim())});
+    saveDraft();if(socket?.connected)socket.emit("typing",{active:Boolean(input.value.trim())});
   };
-  try{socket.timeout(15000).emit("message:send",{kind,body},finish)}catch(error){finish(error)}
+  try{capturedSocket.timeout(15000).emit("message:send",{room:attempt.room,kind:attempt.kind,body:attempt.body,clientRequestId:attempt.clientRequestId},finish)}catch(error){finish(error)}
 }
-$("#send").onclick=send;$("#input").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing&&e.keyCode!==229){e.preventDefault();send()}});$("#input").addEventListener("input",()=>{if(socket?.connected)socket.emit("typing",{active:true})});
-$("#messages").addEventListener("click",async e=>{let c=e.target.closest("[data-copy]");if(c){await navigator.clipboard.writeText(decodeURIComponent(c.dataset.copy));toast("消息已复制");return}let r=e.target.closest("[data-reply]");if(r){replyTo=messages.find(m=>String(m.id)===r.dataset.reply);if(replyTo){$("#replyText").textContent="回复 "+(replyTo.author||R[replyTo.role]?.name||"消息")+"："+replyTo.body.replace(/\s+/g," ").slice(0,120);$("#reply").hidden=false;$("#input").focus()}}});
-$("#cancelReply").onclick=()=>{replyTo=null;$("#reply").hidden=true};$("#jump").onclick=()=>{unread=0;$("#jump").hidden=true;$("#messages").scrollTop=$("#messages").scrollHeight};$("#messages").addEventListener("scroll",()=>{if(nearBottom()){unread=0;$("#jump").hidden=true}},{passive:true});
+$("#send").onclick=send;$("#input").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing&&e.keyCode!==229){e.preventDefault();send()}});$("#input").addEventListener("input",()=>{saveDraft();if(socket?.connected)socket.emit("typing",{active:true})});
+$("#messages").addEventListener("click",async e=>{let c=e.target.closest("[data-copy]");if(c){await navigator.clipboard.writeText(decodeURIComponent(c.dataset.copy));toast("消息已复制");return}let r=e.target.closest("[data-reply]");if(r){replyTo=messages.find(m=>String(m.id)===r.dataset.reply);if(replyTo){$("#replyText").textContent="回复 "+(replyTo.author||R[replyTo.role]?.name||"消息")+"："+replyTo.body.replace(/\s+/g," ").slice(0,120);$("#reply").hidden=false;$("#input").focus();saveDraft()}}});
+$("#cancelReply").onclick=()=>{replyTo=null;$("#reply").hidden=true;saveDraft()};$("#jump").onclick=()=>{unread=0;$("#jump").hidden=true;$("#messages").scrollTop=$("#messages").scrollHeight};$("#messages").addEventListener("scroll",()=>{if(nearBottom()){unread=0;$("#jump").hidden=true}},{passive:true});
 $$(".channel,.tab").forEach(b=>b.onclick=()=>setView(b.dataset.view));$$("[data-kind]").forEach(b=>b.onclick=()=>setKind(b.dataset.kind));$$("[data-mobile-view]").forEach(b=>b.onclick=()=>setView(b.dataset.mobileView));
-$("#atMuse").onclick=()=>{$("#input").value+=($("#input").value?" ":"")+"@Muse ";$("#input").focus()};$("#atDots").onclick=()=>{$("#input").value+=($("#input").value?" ":"")+"@Dots ";$("#input").focus()};$("#mentionBoth").onclick=()=>{$("#input").value+=($("#input").value?" ":"")+"@Muse @Dots ";$("#input").focus()};
+$("#atMuse").onclick=()=>{$("#input").value+=($("#input").value?" ":"")+"@Muse ";$("#input").focus();saveDraft()};$("#atDots").onclick=()=>{$("#input").value+=($("#input").value?" ":"")+"@Dots ";$("#input").focus();saveDraft()};$("#mentionBoth").onclick=()=>{$("#input").value+=($("#input").value?" ":"")+"@Muse @Dots ";$("#input").focus();saveDraft()};
 $("#observerBtn").onclick=$("#mobileObserver").onclick=()=>{observer=!observer;applyObserver();toast(observer?"已进入旁观模式":"已退出旁观模式")};
 
 const settings=$("#settingsDlg");function openSettings(){if(role!=="owner")return;$("#setTitle").value=meta.title||"归藏共享聊天室";$("#setRepo").value=meta.repo_url||"";$("#setObjective").value=meta.objective||"";settings.showModal()}$("#settingsBtn").onclick=openSettings;$("#closeSettings").onclick=()=>settings.close();$("#saveSettings").onclick=()=>{socket.emit("room:update",{title:$("#setTitle").value,repo_url:$("#setRepo").value,objective:$("#setObjective").value},r=>{if(r?.ok){settings.close();toast("设置已保存")}else toast("保存失败")})};
@@ -279,6 +314,7 @@ const inv=$("#inviteDlg");$("#inviteBtn").onclick=async()=>{try{let res=await fe
 $("#exportBtn").onclick=()=>{let lines=["# "+(meta.title||"归藏共享聊天室"),"","房间："+room,meta.repo_url?"项目："+meta.repo_url:"",meta.objective?"目标："+meta.objective:"","---",""];messages.forEach(m=>lines.push("## "+(m.author||m.role)+" · "+(K[m.kind]||m.kind)+" · "+new Date(m.created_at).toLocaleString(),"",m.body,""));let blob=new Blob([lines.filter(x=>x!==undefined).join("\n")],{type:"text/markdown;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="guizang-"+room+".md";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
 const sd=$("#searchDlg");function search(){let q=$("#searchInput").value.trim().toLowerCase(),hits=q?messages.filter(m=>(m.body||"").toLowerCase().includes(q)||(m.author||"").toLowerCase().includes(q)).slice(-80).reverse():[];$("#searchResults").innerHTML=hits.length?hits.map(m=>'<button class="searchhit" data-hit="'+m.id+'"><b>'+esc(m.author)+" · "+esc(K[m.kind]||m.kind)+" · "+fmt(m.created_at)+'</b><span>'+esc(m.body)+'</span></button>').join(""):'<div class="ps">'+(q?"没有找到匹配消息。":"输入关键词开始搜索。")+"</div>"}$("#searchBtn").onclick=()=>{sd.showModal();$("#searchInput").value="";search();setTimeout(()=>$("#searchInput").focus(),30)};$("#closeSearch").onclick=()=>sd.close();$("#searchInput").oninput=search;$("#searchResults").onclick=e=>{let b=e.target.closest("[data-hit]");if(!b)return;sd.close();setView("all");requestAnimationFrame(()=>document.querySelector('[data-id="'+b.dataset.hit+'"]')?.scrollIntoView({behavior:"smooth",block:"center"}))};
 $("#mobileMore").onclick=()=>role==="owner"?openSettings():toast("设置仅房间所有者可修改");
+window.addEventListener("pagehide",saveDraft);
 applyObserver();setView("chat");connect();
 </script>
 </body>

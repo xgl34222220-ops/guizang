@@ -6,7 +6,9 @@ on:
     paths:
       - server.js
       - package.json
+      - package-lock.json
       - Dockerfile
+      - .dockerignore
       - docker-compose.yml
       - public/**
       - tests/**
@@ -25,6 +27,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
+      - run: npm ci
       - run: node --check server.js
       - run: npm test
 
