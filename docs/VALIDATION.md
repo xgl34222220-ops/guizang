@@ -11,7 +11,7 @@
 
 `tools/ui-smoke.cjs` 是隔离的自有夹具测试，1440、393、320 像素三种宽度，覆盖四页、横向溢出、名单→休眠→唤醒、失败三次停用→手动重置、后退、刷新和 JS 错误。
 
-本地执行环境不支持独立 Chromium 的进程 socket，未声称本地浏览器验收通过。通过 GitHub Actions 的 WebUI job 执行并输出截图与 report.json；以该 job 的最终结果为准。
+本地执行环境不支持独立 Chromium 的进程 socket，未声称本地浏览器验收通过。GitHub Actions 的 host 与 WebUI job 已通过：提交 `0a56d362617ec24a94c6deeb21eb8f45d936f397`，push run [37055415869](https://github.com/xgl34222220-ops/guizang/actions/runs/37055415869) 与 PR run [37055478237](https://github.com/xgl34222220-ops/guizang/actions/runs/37055478237)。已下载并目视核对截图；报告三种宽度均无横向溢出、JS错误。后续修改以对应提交的最终 CI 结果为准。
 
 ## 尚未验证 / 禁止据此宣布
 

@@ -28,7 +28,8 @@ const server=http.createServer((req,res)=>{ const asset=assets[req.url]; if(!ass
         await page.locator(`[data-page="${section}"]`).click();
         assert.equal(await page.locator('main h1').count(),1);
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`overflow at ${viewport.width}/${section}`);
-        await page.screenshot({path:path.join(out,`${viewport.width}-${section}.png`),fullPage:true});
+        await page.screenshot({path:path.join(out,`${viewport.width}-${section}.png`),fullPage:false});
+        await page.screenshot({path:path.join(out,`${viewport.width}-${section}-full.png`),fullPage:true});
       }
       await page.locator('[data-page="apps"]').click();
       assert.equal(await page.getByRole('button',{name:'模拟后台休眠',exact:true}).isDisabled(),true);
