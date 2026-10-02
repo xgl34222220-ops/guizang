@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '../webroot');
 const out = path.resolve(process.env.UI_EVIDENCE || 'build/ui-evidence');
 const assets = {'/': ['index.html','text/html'], '/index.html':['index.html','text/html'],
-  '/app.js':['app.js','text/javascript'], '/bridge.js':['bridge.js','text/javascript'], '/build-config.js':['build-config.js','text/javascript'], '/style.css':['style.css','text/css'], '/console.css':['console.css','text/css']};
+  '/app.js':['app.js','text/javascript'], '/bridge.js':['bridge.js','text/javascript'], '/build-config.js':['build-config.js','text/javascript'], '/style.css':['style.css','text/css'], '/console.css':['console.css','text/css'], '/features.css':['features.css','text/css']};
 const server=http.createServer((req,res)=>{ const asset=assets[req.url]; if(!asset){res.writeHead(404);res.end();return;} res.writeHead(200,{'Content-Type':asset[1]});res.end(fs.readFileSync(path.join(root,asset[0]))); });
 (async()=>{
   fs.mkdirSync(out,{recursive:true});
@@ -27,6 +27,8 @@ const server=http.createServer((req,res)=>{ const asset=assets[req.url]; if(!ass
       assert.equal(await page.locator('.preview').innerText(),'交互预览 · 未连接设备');
       for(const section of ['overview','apps','performance','recovery']){
         await page.locator(`[data-page="${section}"]`).click();
+        await page.locator(`[data-page="${section}"]`).click();
+        assert.equal(await page.locator(`[data-page="${section}"]`).getAttribute('aria-current'),'page');
         assert.equal(await page.locator('main h1').count(),1);
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`overflow at ${viewport.width}/${section}`);
         if(section==='overview' && viewport.width<=700){
@@ -46,6 +48,18 @@ const server=http.createServer((req,res)=>{ const asset=assets[req.url]; if(!ass
         }
         await page.screenshot({path:path.join(out,`${viewport.width}-${section}.png`),fullPage:false});
         await page.screenshot({path:path.join(out,`${viewport.width}-${section}-full.png`),fullPage:true});
+        if(section!=='overview' && viewport.width<=700){
+          await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+          const footerNote=await page.locator('footer span').boundingBox();
+          const dock=await page.locator('nav').boundingBox();
+          assert.ok(footerNote.y+footerNote.height<dock.y,'feature footer scrolls clear of dock');
+          for(const button of await page.locator('main button').all()){
+            const bounds=await button.boundingBox();
+            assert.ok(bounds.width>=44 && bounds.height>=44,'feature buttons have44px touch targets');
+          }
+          await page.screenshot({path:path.join(out,`${viewport.width}-${section}-bottom.png`)});
+          await page.evaluate(()=>window.scrollTo(0,0));
+        }
         if(section==='overview' && viewport.width<=700){
           await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
           const note=await page.locator('.console-footnote').boundingBox();
