@@ -1,69 +1,23 @@
-# 归藏共享聊天室 / Guizang Room
+# 归藏 · Guizang
 
-给你、Muse、Dots 共用的实时聊天室。既可以自由聊天，也可以围绕 GitHub 项目持续讨论、交叉审查、沉淀修改方案、最终结论和待办。
+Android Root 应用休眠与性能管理实验项目。
 
-## 当前有两种运行方式
+> **研发骨架，默认 disabled / dry-run，尚不可刷入。** 这是 Android 上借鉴 iOS 体验的冻结/唤醒设计，不是 iOS 内核实现，也不承诺全机型、零掉消息或“万能救砖”。
 
-### 1. GitHub Pages 体验版
+## 三条主线
 
-仓库根目录的 `index.html` 是静态体验版。
+- **应用休眠**：仅显式允许的应用；先保护前台、音频、输入法、无障碍、VPN、系统关键进程；以框架/Binder 可验证解冻为前提。
+- **场景调度**：先观察并解释决策；不盲写 sysfs、不关温控、不超频。未来写入必须有能力探测、原值快照及幂等恢复。
+- **启动保护**：只处理本模块连续启动失败；自动停用自身、恢复自己记录的变更；不刷 boot、不清数据、不操作其他模块。
 
-### 2. 自托管服务器版（推荐）
+## 当前阶段
 
-服务器版位于：
+主分支保存新项目起点；第一版实现与 CI 在独立测试分支审阅。没有发布安装包，没有在用户设备安装或执行 Root 操作。设备端冻结/性能执行器尚未开放；host 测试不能证明实机兼容性。
 
-- `server.js` — Express + Socket.IO 实时服务
-- `public/index.html` — 聊天网页
-- SQLite 数据目录：`/data`
-- `Dockerfile` / `docker-compose.yml` — 一键部署
+- [设计与安全边界](docs/ARCHITECTURE.md)
+- [迁移和旧项目恢复点](docs/MIGRATION.md)
+- [研究与许可证记录](docs/RESEARCH.md)
 
-服务器版不需要 Supabase。
+## 仓库迁移
 
-## Ubuntu / Debian VPS 一键部署
-
-准备一台有公网 IP 的 Ubuntu 22.04/24.04 服务器，最低 1 核 / 1GB 内存即可。
-
-在服务器里运行：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/xgl34222220-ops/guizang/main/deploy-vps.sh | sudo bash
-```
-
-部署完成后访问：
-
-```text
-http://你的服务器IP:3000
-```
-
-服务器首次启动会使用三套独立身份 Token：
-
-- Owner
-- Muse
-- Dots
-
-Token 会保存在服务器 `/opt/guizang/.env`，不会提交到 GitHub。
-
-查看服务器自动生成的三个访问链接：
-
-```bash
-cd /opt/guizang
-sudo docker compose logs guizang | tail -n 30
-```
-
-## 更新
-
-```bash
-cd /opt/guizang
-sudo git pull
-sudo docker compose up -d --build
-```
-
-## 数据持久化
-
-聊天消息、房间项目信息和自动生成的访问配置保存在 Docker volume `guizang_data` 中。重建容器不会丢聊天记录。
-
-## 安全
-
-不要公开 Owner / Muse / Dots 的访问链接。每个链接包含独立身份 Token，服务器会验证身份，不能再通过前端简单切换身份冒充其他成员。
-
-生产环境建议配置域名 + HTTPS，或者部署到 Railway / Render 这类自带 HTTPS 的平台。
+本仓库已按所有者要求整体更换用途，旧聊天室与 Gemini 网关不再位于当前工作树。Git 历史和归档分支保留。仓库替换本身不会关闭已经部署的服务，也未更改远端服务、密钥、其他分支或标签。

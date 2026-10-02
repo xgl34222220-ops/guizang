@@ -1,0 +1,6 @@
+id=guizang
+name=归藏 Guizang (development only)
+version=0.1.0-dev
+versionCode=1
+author=Guizang contributors
+description=Android app lifecycle and performance research; disabled by default; not device-validated.

@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "enabled": false,
+  "dry_run": true,
+  "allowlist": [],
+  "performance_mode": "observe",
+  "failure_limit": 3
+}
