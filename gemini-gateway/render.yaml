@@ -10,7 +10,7 @@ services:
       - key: GEMINI_API_KEYS
         sync: false
       - key: ADMIN_TOKEN
-        generateValue: true
+        sync: false
       - key: STATE_PATH
         value: /data/gateway.json
       - key: MODEL_ALIASES
