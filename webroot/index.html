@@ -2,9 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light"><meta name="theme-color" content="#f5f4f0">
+<meta name="color-scheme" content="light"><meta name="theme-color" content="#f4f5f9">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
-<title>归藏 · 安静有序</title><link rel="stylesheet" href="style.css"><script src="build-config.js" defer></script><script src="bridge.js" defer></script><script src="app.js" defer></script>
+<title>归藏 · 设备控制台</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="console.css"><script src="build-config.js" defer></script><script src="bridge.js" defer></script><script src="app.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">跳到主要内容</a>
@@ -26,5 +26,5 @@
 <footer>所有数值与应用均为演示数据。不会修改手机设置。<span>原型阶段 · 尚不可刷入</span></footer>
 </div>
 </div>
-<div id="toast" role="status" aria-live="polite"></div>
+<div id="toast" role="status" aria-live="polite"></div><dialog id="connection-dialog" aria-labelledby="connection-title"><div class="dialog-handle"></div><h2 id="connection-title">当前是离线预览</h2><p>只读设备通道尚未开放。此页面不会授予 Root 权限或更改手机设置。</p><button class="connection-button" data-action="close-connection">知道了</button></dialog>
 </body></html>

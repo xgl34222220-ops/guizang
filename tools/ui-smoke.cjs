@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '../webroot');
 const out = path.resolve(process.env.UI_EVIDENCE || 'build/ui-evidence');
 const assets = {'/': ['index.html','text/html'], '/index.html':['index.html','text/html'],
-  '/app.js':['app.js','text/javascript'], '/bridge.js':['bridge.js','text/javascript'], '/build-config.js':['build-config.js','text/javascript'], '/style.css':['style.css','text/css']};
+  '/app.js':['app.js','text/javascript'], '/bridge.js':['bridge.js','text/javascript'], '/build-config.js':['build-config.js','text/javascript'], '/style.css':['style.css','text/css'], '/console.css':['console.css','text/css']};
 const server=http.createServer((req,res)=>{ const asset=assets[req.url]; if(!asset){res.writeHead(404);res.end();return;} res.writeHead(200,{'Content-Type':asset[1]});res.end(fs.readFileSync(path.join(root,asset[0]))); });
 (async()=>{
   fs.mkdirSync(out,{recursive:true});
@@ -31,6 +31,14 @@ const server=http.createServer((req,res)=>{ const asset=assets[req.url]; if(!ass
         await page.screenshot({path:path.join(out,`${viewport.width}-${section}.png`),fullPage:false});
         await page.screenshot({path:path.join(out,`${viewport.width}-${section}-full.png`),fullPage:true});
       }
+      await page.locator('[data-page="overview"]').click();
+      await page.getByRole('button',{name:'检查连接',exact:true}).click();
+      assert.equal(await page.getByRole('dialog').isVisible(),true);
+      await page.getByRole('button',{name:'知道了',exact:true}).click();
+      assert.equal(await page.getByRole('dialog').isVisible(),false);
+      await page.getByRole('button',{name:'检查连接',exact:true}).click();
+      await page.keyboard.press('Escape');
+      assert.equal(await page.getByRole('dialog').isVisible(),false);
       await page.locator('[data-page="apps"]').click();
       assert.equal(await page.getByRole('button',{name:'模拟后台休眠',exact:true}).isDisabled(),true);
       await page.getByRole('switch').click();
