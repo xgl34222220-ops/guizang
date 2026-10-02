@@ -23,11 +23,22 @@ const server=http.createServer((req,res)=>{ const asset=assets[req.url]; if(!ass
       page.on('pageerror',error=>errors.push(error.message));
       page.on('console',msg=>{ if(msg.type()==='error' && !msg.text().includes('404'))errors.push(msg.text()); });
       await page.goto(origin);
+      await page.evaluate(() => document.fonts.ready);
       assert.equal(await page.locator('.preview').innerText(),'交互预览 · 未连接设备');
       for(const section of ['overview','apps','performance','recovery']){
         await page.locator(`[data-page="${section}"]`).click();
         assert.equal(await page.locator('main h1').count(),1);
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`overflow at ${viewport.width}/${section}`);
+        if(section==='overview' && viewport.width<=700){
+          const dock=await page.locator('nav').boundingBox();
+          assert.ok(dock.x>0 && dock.x+dock.width<viewport.width,'floating dock keeps side gutters');
+          assert.ok(dock.y+dock.height<viewport.height,'floating dock keeps bottom gutter');
+          assert.equal(await page.locator('nav').evaluate(el=>getComputedStyle(el).backdropFilter.includes('blur')),true,'dock uses translucent blur');
+          for(const target of await page.locator('nav a').all()){
+            const box=await target.boundingBox();
+            assert.ok(box.width>=44 && box.height>=44,'navigation touch target is at least 44px');
+          }
+        }
         await page.screenshot({path:path.join(out,`${viewport.width}-${section}.png`),fullPage:false});
         await page.screenshot({path:path.join(out,`${viewport.width}-${section}-full.png`),fullPage:true});
       }
