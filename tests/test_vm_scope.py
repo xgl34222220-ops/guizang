@@ -1,10 +1,18 @@
 import importlib.util
+import json
 from pathlib import Path
+import sys
+import tempfile
 from types import SimpleNamespace
 import unittest
+from unittest.mock import Mock, patch
 spec = importlib.util.spec_from_file_location('vm_validate', Path(__file__).parents[1] / 'tools/vm_validate.py')
 vm = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(vm)
+sys.modules['vm_validate'] = vm
+runner_spec = importlib.util.spec_from_file_location('vm_runner', Path(__file__).parents[1] / 'tools/vm_runner.py')
+runner = importlib.util.module_from_spec(runner_spec)
+runner_spec.loader.exec_module(runner)
 
 
 class VmScopeTests(unittest.TestCase):
@@ -27,7 +35,7 @@ class VmScopeTests(unittest.TestCase):
         calls=[]
         def fake(args, **kwargs):
             calls.append(args)
-            return SimpleNamespace(returncode=0,stdout='accepted')
+            return SimpleNamespace(returncode=0,stdout='accepted',stderr='')
         adb=vm.Adb('adb','emulator-5554',run=fake)
         adb.freeze();adb.thaw()
         self.assertEqual(calls,[['adb','-s','emulator-5554','shell','am','freeze','org.guizang.fixture'],['adb','-s','emulator-5554','shell','am','unfreeze','org.guizang.fixture']])
@@ -36,7 +44,7 @@ class VmScopeTests(unittest.TestCase):
         calls=[]
         def fake(args, **kwargs):
             calls.append(args)
-            return SimpleNamespace(returncode=0,stdout='1' if 'getprop' in args else '2000')
+            return SimpleNamespace(returncode=0,stdout='1' if 'getprop' in args else '2000',stderr='')
         with self.assertRaises(vm.ExperimentFailure):
             vm.Adb('adb','emulator-5554',run=fake).validate_vm()
         self.assertFalse(any('root' in args for args in calls))
@@ -54,3 +62,88 @@ class VmScopeTests(unittest.TestCase):
         for change in (dict(uid=1000),dict(counter='1'),dict(starttime='0'),dict(pid=1)):
             with self.assertRaises(vm.ExperimentFailure):
                 vm.require_heartbeat({**good,**change})
+
+    def test_adb_failure_keeps_diagnostic_and_command_evidence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            evidence=Path(directory)/'commands.jsonl'
+            fake=lambda *a,**k: SimpleNamespace(returncode=1,stdout='',stderr='error: closed')
+            with self.assertRaises(vm.AdbFailure):
+                vm.Adb('adb','emulator-5554',run=fake,evidence=evidence).command('root')
+            row=json.loads(evidence.read_text())
+            self.assertEqual(row['stderr'],'error: closed')
+            self.assertEqual(row['args'],['root'])
+            self.assertIn('finished_at',row)
+
+    def test_root_single_closed_request_reconnects_and_verifies(self):
+        adb=Mock()
+        adb.command.side_effect=[vm.AdbFailure(['root'],'','adb: error: closed'),'']
+        self.assertIn('verified',runner.enable_debug_root(adb))
+        self.assertEqual(adb.command.call_args_list[1].args,('wait-for-device',))
+        adb.validate_vm.assert_called_once()
+        self.assertEqual(sum(call.args==('root',) for call in adb.command.call_args_list),1)
+
+    def test_root_denial_never_retries_or_waits(self):
+        for message in ('error: unauthorized','permission denied','error: closed\nunauthorized'):
+            adb=Mock()
+            adb.command.side_effect=vm.AdbFailure(['root'],'',message)
+            with self.assertRaises(vm.ExperimentFailure):
+                runner.enable_debug_root(adb)
+            self.assertEqual(adb.command.call_count,1)
+            adb.validate_vm.assert_not_called()
+
+    def test_root_reconnect_requires_uid_validation(self):
+        adb=Mock()
+        adb.command.return_value='restarting adbd as root'
+        adb.validate_vm.side_effect=vm.ExperimentFailure('uid is 2000')
+        with self.assertRaises(vm.ExperimentFailure):
+            runner.enable_debug_root(adb)
+
+    def test_receipt_reuse_no_reinstallation_and_hash_match(self):
+        with tempfile.TemporaryDirectory() as directory:
+            apk=Path(directory)/'fixture.apk';apk.write_bytes(b'our own fixture')
+            receipt=Path(directory)/'receipt.json'
+            expected=dict(schema=1,package=vm.PACKAGE,serial='emulator-5554',boot_id='boot',apk_sha256=vm.sha256(apk),installed_by_experiment=True)
+            receipt.write_text(json.dumps(expected))
+            adb=Mock(serial='emulator-5554');adb.shell.return_value='package:'+vm.PACKAGE
+            with patch.object(vm,'installed_apk_hash',return_value=vm.sha256(apk)):
+                self.assertTrue(vm.prepare_fixture(adb,apk,'boot',receipt,True)['reused_without_reinstall'])
+            adb.command.assert_not_called()
+            with patch.object(vm,'installed_apk_hash',return_value='mismatch'):
+                with self.assertRaises(vm.ExperimentFailure):vm.prepare_fixture(adb,apk,'boot',receipt,True)
+            with self.assertRaises(vm.ExperimentFailure):vm.prepare_fixture(adb,apk,'other-boot',receipt,True)
+
+    def test_preexisting_fixture_never_replaced(self):
+        with tempfile.TemporaryDirectory() as directory:
+            apk=Path(directory)/'fixture.apk';apk.write_bytes(b'x')
+            adb=Mock(serial='emulator-5554');adb.shell.return_value='package:'+vm.PACKAGE
+            with self.assertRaises(vm.ExperimentFailure):vm.prepare_fixture(adb,apk,'boot')
+            adb.command.assert_not_called()
+
+    def test_diagnostic_requires_positive_transition_and_clean_exit_history(self):
+        good='ActivityManager: freezing 42 org.guizang.fixture\nActivityManager: sync unfroze 42 org.guizang.fixture for shell'
+        self.assertTrue(vm.diagnostic_review(vm.EXIT_HEADER,vm.EXIT_HEADER,'',good,42)['no_recorded_fixture_exit'])
+        for after,logs in [('',good),(vm.EXIT_HEADER+'\nHistorical Process Exit',good),(vm.EXIT_HEADER,''),(vm.EXIT_HEADER,good+'\nUnable to freeze 42 org.guizang.fixture')]:
+            with self.assertRaises(vm.ExperimentFailure):vm.diagnostic_review(vm.EXIT_HEADER,after,'',logs,42)
+
+    def test_cleanup_requires_reap_and_unchanged_kvm(self):
+        with tempfile.TemporaryDirectory() as directory:
+            absent=Path(directory)/'gone'
+            good=dict(emulator_started=True,emulator_reaped=True,owned_home_removed=True)
+            runner.verify_cleanup(good,{'mode':432},{'mode':432},absent)
+            for report,before,after in [(dict(good,emulator_reaped=False),{},{}),(good,{'mode':432},{'mode':438})]:
+                with self.assertRaises(vm.ExperimentFailure):runner.verify_cleanup(report,before,after,absent)
+
+    def test_cleanup_ownership_marker_is_required(self):
+        with tempfile.TemporaryDirectory(prefix='guizang-avd-') as directory:
+            path=Path(directory).resolve()
+            (path/'.guizang-owner.json').write_text(json.dumps(dict(owner='guizang-vm-runner',token='right')))
+            with self.assertRaises(vm.ExperimentFailure):runner.remove_owned_home(path,'wrong')
+            self.assertTrue(path.is_dir())
+
+    def test_emulator_term_then_kill_reaps_only_owned_child(self):
+        import subprocess
+        child=Mock();child.poll.return_value=None;child.returncode=-9
+        child.wait.side_effect=[subprocess.TimeoutExpired('emulator',20),-9]
+        self.assertEqual(runner.terminate_and_reap(child),-9)
+        child.terminate.assert_called_once();child.kill.assert_called_once()
+        self.assertEqual([call.kwargs['timeout'] for call in child.wait.call_args_list],[20,10])

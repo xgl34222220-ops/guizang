@@ -2,7 +2,7 @@
 
 ## 许可闸门
 
-源码、host mock、交叉编译均可先执行。以下实际安全动作必须得到本次明确许可，不能沿用别的项目许可：
+本次临时AVD、调试Root、唯一自建测试App冻结/解冻与中断恢复已得到明确许可，测试脚本提交和CI执行也已获批。边界如下，不能沿用别的项目许可：
 
 1. 仅一次性、无个人数据的 AOSP x86_64 AVD：`adb root` 临时调试提权，安装 `org.guizang.fixture` 测试 APK，运行自写只读探针。
 2. 只有探测满足条件，才使用 AMS 对唯一测试进程 `org.guizang.fixture` 做冻结/解冻，并测试协调器中断后的独立清理；不处理系统应用/其他应用/实体手机。
@@ -54,4 +54,13 @@ cgroup.freeze只是请求值，cgroup.events frozen才是完成状态。freezer�
 - [Linux cgroup2 semantics](https://docs.kernel.org/admin-guide/cgroup-v2.html)
 - [KernelSU WebUI ABI](https://kernelsu.org/guide/module-webui.html)，核对官方npm kernelsu 3.0.2公开exec签名，Apache-2.0；未复制其实现。
 
-脚本支持专用 `--fault-coordinator-exit`：在已经观察到夹具冻结后，让测试协调器进程以73退出，独立18秒watchdog只请求该夹具解冻。该故障模式和真实冻结都必须先获批准；CI编译任务不会调用它。即使kernel/AMS/heartbeat吻合，脚本仍保留passed=false，直到该次退出信息和错误日志人工核对，避免把部分证据误记为完整通过。
+脚本支持专用 `--fault-coordinator-exit`：在已经观察到夹具冻结后，让测试协调器进程以73退出，独立18秒watchdog只请求该夹具解冻。单独的Disposable Android fixture experiment工作流执行已批准实验；原android-compile任务仍只编译。runner同时核对kernel/AMS/heartbeat、同一实例、退出记录及框架freeze/thaw正向日志，再形成机器判定；仍须复核原始产物，任何一项缺失都不记为通过。
+
+
+## 一次性 runner
+
+`tools/vm_runner.py`创建官方API35 google_apis x86_64全新AVD，先核对无其他ADB设备、镜像身份、AVD名称，才执行一次调试Root。仅在预存sudo可用且普通runner无KVM访问时，用sudo监督官方emulator进程，不修改设备权限、组、udev或SELinux。
+
+先只读探测，再进行常规冻结/唤醒，最后进行协调器退出和独立watchdog恢复。第二轮只复用本次安装回执与完全相同APK哈希，禁止覆盖预存App。结束时TERM/wait/KILL/wait仅针对自有直接子进程，验证回收、删除带独占标记的临时AVD目录，并比较KVM前后元数据。没有Magisk、真实手机或系统应用动作。
+
+对应新增host回归覆盖调试Root closed重连与拒绝、安装回执/哈希、正向日志、退出记录、清理所有权和KVM不变；host通过不等于真实实验通过。

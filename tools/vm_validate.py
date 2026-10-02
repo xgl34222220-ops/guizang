@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Disposable-AVD fixture experiment. NEVER run without the separate user approval.
+"""Bounded, separately authorized disposable-AVD fixture experiment.
 
-No automatic Root elevation, image patches, freezer global settings or raw cgroup writes.
-The acknowledgment flag is a guardrail; it is not a substitute for authorization.
+No automatic Root elevation, image patches, global settings, or raw cgroup writes.
+The acknowledgment flag is a guardrail, never a substitute for user authorization.
 """
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -16,10 +17,32 @@ import time
 
 PACKAGE = 'org.guizang.fixture'
 REMOTE_PROBE = '/data/local/tmp/guizang-probe'
+EXIT_HEADER = 'ACTIVITY MANAGER PROCESS EXIT INFO (dumpsys activity exit-info)'
 
 
 class ExperimentFailure(RuntimeError):
     pass
+
+
+class AdbFailure(ExperimentFailure):
+    def __init__(self, args, stdout, stderr):
+        self.detail = (stdout + '\n' + stderr).strip()
+        super().__init__('ADB operation failed: ' + ' '.join(map(str, args[:3])) + ': ' + self.detail)
+
+
+def timestamp():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def save_json(path, value):
+    path = Path(path)
+    temporary = path.with_suffix(path.suffix + '.tmp')
+    temporary.write_text(json.dumps(value, indent=2) + '\n')
+    temporary.replace(path)
+
+
+def sha256(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
 def validate_serial(serial):
@@ -62,19 +85,37 @@ def ams_frozen(dump, pid):
 
 
 class Adb:
-    def __init__(self, executable, serial, run=subprocess.run):
+    def __init__(self, executable, serial, run=subprocess.run, evidence=None):
         self.executable, self.serial, self.run = executable, validate_serial(serial), run
+        self.evidence = Path(evidence) if evidence else None
 
-    def command(self, *args, timeout=15):
-        # Parameters below are library-owned literals, except validated PIDs/local input paths.
-        result = self.run([self.executable, '-s', self.serial, *map(str, args)],
-                          check=False, capture_output=True, text=True, timeout=timeout)
-        if result.returncode:
-            raise ExperimentFailure('ADB operation failed: ' + ' '.join(map(str, args[:3])))
-        return result.stdout.strip()
+    def command(self, *args, timeout=15, retain=None):
+        record = {'started_at': timestamp(), 'args': list(map(str, args))}
+        try:
+            result = self.run([self.executable, '-s', self.serial, *map(str, args)],
+                              check=False, capture_output=True, text=True, timeout=timeout)
+            stdout = retain(result.stdout) if retain else result.stdout
+            record.update(returncode=result.returncode, stdout=stdout, stderr=result.stderr)
+            if result.returncode:
+                raise AdbFailure(args, result.stdout, result.stderr)
+            return stdout.strip()
+        except Exception as error:
+            record['error'] = str(error)
+            raise
+        finally:
+            record['finished_at'] = timestamp()
+            if self.evidence:
+                with self.evidence.open('a') as stream:
+                    stream.write(json.dumps(record) + '\n')
 
     def shell(self, *args, **kwargs):
         return self.command('shell', *args, **kwargs)
+
+    def boot_id(self):
+        value = self.shell('cat', '/proc/sys/kernel/random/boot_id')
+        if not re.fullmatch(r'[a-f0-9-]{36}', value):
+            raise ExperimentFailure('Missing VM boot identity')
+        return value
 
     def validate_vm(self):
         if self.shell('getprop', 'ro.kernel.qemu') != '1':
@@ -85,8 +126,11 @@ class Adb:
             raise ExperimentFailure('Only the clean VM primary user is supported')
 
     def heartbeat(self):
-        # Separate run-as process reads a file, not a Binder request to the frozen app.
-        return require_heartbeat(json.loads(self.shell('run-as', PACKAGE, 'cat', 'files/heartbeat.json')))
+        # Separate run-as reads a file; it does not contact the frozen app via Binder.
+        try:
+            return require_heartbeat(json.loads(self.shell('run-as', PACKAGE, 'cat', 'files/heartbeat.json')))
+        except (ValueError, TypeError) as error:
+            raise ExperimentFailure('Fixture heartbeat unavailable') from error
 
     def probe(self, pid=None):
         args = [REMOTE_PROBE, '--json']
@@ -102,7 +146,7 @@ class Adb:
         return report
 
     def ams(self, pid):
-        # Android16 moved CachedAppOptimizer to 'cao'; older images used settings.
+        # Android16 moved CachedAppOptimizer to 'cao'; API35 normally uses settings.
         for subcommand in ('cao', 'settings'):
             dump = self.shell('dumpsys', 'activity', subcommand)
             if re.search(r'^\s*Apps frozen: ', dump, re.M):
@@ -123,6 +167,14 @@ class Adb:
             raise ExperimentFailure('Fixture process lifetime changed')
         return report
 
+    def logs(self, pid):
+        # Keep only this fixture's lines, including system_server freezer messages.
+        pattern = re.compile(r'(?<!\d)' + str(pid) + r'(?!\d)|' + re.escape(PACKAGE))
+        return self.shell('logcat', '-d', '-v', 'threadtime', '-b', 'main,system,crash',
+                          '-t', '10000', 'ActivityManager:D', 'AndroidRuntime:E', 'libc:F',
+                          'DEBUG:F', '*:S', retain=lambda text: '\n'.join(
+                              line for line in text.splitlines() if pattern.search(line)))
+
 
 def wait_until(action, condition, timeout=5, retry_unavailable=False):
     deadline = time.monotonic() + timeout
@@ -141,128 +193,254 @@ def wait_until(action, condition, timeout=5, retry_unavailable=False):
         time.sleep(0.25)
 
 
-def cleanup_watchdog(adb, marker, result_path):
-    # Runs in a separate process/session. A killed coordinator cannot cancel it.
+def require_kernel(report, frozen):
+    capabilities = report.get('capabilities', {})
+    observation = report.get('freezer_observation', {})
+    if (capabilities.get('binder_node') is not True
+            or capabilities.get('cgroup2_membership') is not True
+            or capabilities.get('self_freezer_node') is not True
+            or observation.get('complete') is not frozen
+            or observation.get('requested') is not frozen):
+        raise ExperimentFailure('Missing or inconsistent Binder/cgroup freezer evidence')
+
+
+def installed_apk_hash(adb):
+    paths = adb.shell('pm', 'path', PACKAGE).splitlines()
+    if len(paths) != 1 or not re.fullmatch(r'package:/data/app/[a-zA-Z0-9_+=~./-]+/base\.apk', paths[0]):
+        raise ExperimentFailure('Installed fixture APK path missing or ambiguous')
+    remote = paths[0][len('package:'):]
+    value = adb.shell('sha256sum', remote).split()
+    if len(value) != 2 or not re.fullmatch(r'[0-9a-f]{64}', value[0]) or value[1] != remote:
+        raise ExperimentFailure('Installed fixture APK hash unavailable')
+    return value[0]
+
+
+def prepare_fixture(adb, apk, boot_id, receipt_path=None, reuse=False):
+    digest = sha256(apk)
+    installed = bool(adb.shell('pm', 'list', 'packages', PACKAGE).strip())
+    expected = {'schema': 1, 'package': PACKAGE, 'serial': adb.serial,
+                'boot_id': boot_id, 'apk_sha256': digest, 'installed_by_experiment': True}
+    if reuse:
+        if not installed or not receipt_path or not Path(receipt_path).is_file():
+            raise ExperimentFailure('Reuse requires this VM session installation receipt')
+        receipt = json.loads(Path(receipt_path).read_text())
+        if any(receipt.get(key) != value for key, value in expected.items()):
+            raise ExperimentFailure('Fixture reuse receipt does not match this APK and VM boot')
+        if installed_apk_hash(adb) != digest:
+            raise ExperimentFailure('Installed fixture APK differs from this build')
+        return {**expected, 'reused_without_reinstall': True}
+    if installed:
+        raise ExperimentFailure('Fixture already installed; never replace unrelated app data')
+    if receipt_path and Path(receipt_path).exists():
+        raise ExperimentFailure('Installation receipt already exists')
+    adb.command('install', '-t', str(apk), timeout=60)
+    if installed_apk_hash(adb) != digest:
+        raise ExperimentFailure('Installed fixture APK hash mismatch')
+    receipt = {**expected, 'installed_at': timestamp()}
+    if receipt_path:
+        # Exclusive creation prevents accidental replacement of session evidence.
+        with Path(receipt_path).open('x') as stream:
+            json.dump(receipt, stream, indent=2)
+    return receipt
+
+
+def observe_thaw(adb, before, counter):
+    thawed = wait_until(lambda: adb.passive(before),
+                        lambda p: p.get('freezer_observation', {}).get('complete') is False)
+    require_kernel(thawed, False)
+    if adb.ams(before['pid']):
+        raise ExperimentFailure('AMS still lists the fixture as frozen')
+    resumed = wait_until(adb.heartbeat, lambda h: h['counter'] > counter)
+    if not same_instance(before, resumed):
+        raise ExperimentFailure('Restart is not a successful thaw')
+    adb.passive(resumed)
+    return {'observed_at': timestamp(), 'heartbeat': resumed, 'probe': thawed, 'ams_frozen': False}
+
+
+def diagnostic_review(exit_before, exit_after, logs_before, logs_after, pid):
+    # Empty history is valid only with the actual dumpsys header. Never infer it
+    # from an empty command response. A fresh fixture must have no historic exits.
+    for dump in (exit_before, exit_after):
+        if EXIT_HEADER not in dump or 'Historical Process Exit' in dump:
+            raise ExperimentFailure('Exit history absent, unrecognized, or contains a fixture exit')
+    previous = set(logs_before.splitlines())
+    lines = [line for line in logs_after.splitlines() if line not in previous]
+    new = '\n'.join(lines)
+    target = str(pid) + r'\s+' + re.escape(PACKAGE) + r'\b'
+    if not re.search(r'\bfreezing\s+' + target, new) or not re.search(r'\bunfroze\s+' + target, new):
+        raise ExperimentFailure('Missing positive fixture freeze/thaw framework log evidence')
+    failure = re.compile(r'Unable to (?:un)?freeze|FATAL EXCEPTION|ANR in|\bKilling\b|'
+                         r'(?:binder|freezer).*(?:fail|error)|(?:fail|error).*binder', re.I)
+    if any(failure.search(line) for line in lines):
+        raise ExperimentFailure('Fixture logs contain Binder/freezer/exit errors')
+    return {'checked_at': timestamp(), 'framework_freeze_and_thaw_logs': True,
+            'no_recorded_fixture_exit': True, 'no_scoped_error': True,
+            'new_scoped_log_lines': lines,
+            'binder_evidence': 'device presence plus AMS-managed transition; no direct Binder ioctl probe'}
+
+
+def collect_diagnostics(adb, report):
+    pid = report['before']['heartbeat']['pid']
+    report['exit_info_after'] = adb.shell('dumpsys', 'activity', 'exit-info', PACKAGE)
+    report['fixture_logcat_after'] = adb.logs(pid)
+    report['diagnostic_review'] = diagnostic_review(
+        report['exit_info_before'], report['exit_info_after'],
+        report['fixture_logcat_before'], report['fixture_logcat_after'], pid)
+
+
+def cleanup_watchdog(adb, marker, result_path, identity_path):
+    # Separate process/session; a killed coordinator cannot cancel this deadline.
+    result = {'started_at': timestamp(), 'attempted': False, 'verified_thaw': False}
     deadline = time.monotonic() + 18
     while time.monotonic() < deadline:
         if marker.exists():
+            result.update(cancelled_after_verified_thaw=True, finished_at=timestamp())
+            save_json(result_path, result)
             return
         time.sleep(0.2)
-    result = {'attempted': False}
     try:
+        context = json.loads(identity_path.read_text())
         adb.validate_vm()
+        if adb.boot_id() != context['boot_id']:
+            raise ExperimentFailure('Watchdog refuses a replacement VM boot')
+        before = context['heartbeat']
+        adb.passive(before)
+        current = adb.heartbeat()
+        if not same_instance(before, current):
+            raise ExperimentFailure('Watchdog refuses a replacement fixture process')
         result.update(attempted=True, response=adb.thaw())
+        result['resumed'] = observe_thaw(adb, before, current['counter'])
+        result['verified_thaw'] = True
     except Exception as error:
-        result['error'] = type(error).__name__
-    result_path.write_text(json.dumps(result))
+        result['error'] = str(error)
+    finally:
+        result['finished_at'] = timestamp()
+        save_json(result_path, result)
 
 
 def run_experiment(args):
     if not args.ack_disposable_vm:
-        raise ExperimentFailure('Explicit disposable-VM acknowledgment required; actual approval is separate')
-    adb = Adb(args.adb, args.serial)
-    adb.validate_vm()
+        raise ExperimentFailure('Disposable-VM acknowledgment required; actual approval is separate')
     output = Path(args.output).resolve()
-    output.mkdir(parents=True, exist_ok=False)  # never merge evidence from old attempts
-    report = {'scope': PACKAGE, 'serial': args.serial, 'mode': args.mode, 'passed': False}
-    report['fingerprint'] = adb.shell('getprop', 'ro.build.fingerprint')
-    binary = Path(args.probe).resolve()
-    if not binary.is_file() or binary.read_bytes()[:4] != b'\x7fELF':
-        raise ExperimentFailure('An actual compiled Android ELF probe is required')
-    report['probe_sha256'] = hashlib.sha256(binary.read_bytes()).hexdigest()
-    adb.command('push', str(binary), REMOTE_PROBE)
-    # Only the test-owned file executable bit, not security policy or another app's path.
-    adb.shell('chmod', '700', REMOTE_PROBE)
-    report['capabilities'] = adb.probe()
-    (output / 'result.json').write_text(json.dumps(report, indent=2))
-    if args.mode == 'probe':
-        report['passed'] = True
-        (output / 'result.json').write_text(json.dumps(report, indent=2))
-        return
-    apk = Path(args.apk).resolve()
-    if not apk.is_file():
-        raise ExperimentFailure('A locally built test fixture APK is required')
-    report['apk_sha256'] = hashlib.sha256(apk.read_bytes()).hexdigest()
-    # Independently inspect the actual APK, not just a nearby source manifest.
-    badging = subprocess.run([args.aapt, 'dump', 'badging', str(apk)], check=True, capture_output=True, text=True).stdout
-    manifest = subprocess.run([args.aapt, 'dump', 'xmltree', str(apk), 'AndroidManifest.xml'], check=True, capture_output=True, text=True).stdout
-    if not re.search(r"^package: name='org.guizang.fixture' ", badging, re.M) or 'uses-permission' in badging:
-        raise ExperimentFailure('APK is not the permission-free fixture')
-    if re.search(r'E: (service|receiver|provider|activity-alias)\b|sharedUserId', manifest):
-        raise ExperimentFailure('Unexpected fixture component or shared UID')
-    if adb.shell('pm', 'list', 'packages', PACKAGE).strip():
-        raise ExperimentFailure('Fixture already installed; use a fresh disposable VM, do not replace app data')
-    adb.command('install', '-t', str(apk), timeout=60)
-    help_text = adb.shell('am', 'help')
-    if not all(re.search(r'^\s*' + op + r'(?:\s|\[)', help_text, re.M) for op in ('freeze', 'unfreeze')):
-        raise ExperimentFailure('This image does not advertise AMS freezer commands; no fallback')
-    adb.shell('am', 'start', '-W', '-n', PACKAGE + '/.MainActivity', timeout=30)
-    first = wait_until(adb.heartbeat, lambda h: h['counter'] >= 1, retry_unavailable=True)
-    adb.shell('input', 'keyevent', 'KEYCODE_HOME')
-    time.sleep(0.7)
-    before = adb.heartbeat()
-    if not same_instance(first, before) or before['counter'] <= first['counter']:
-        raise ExperimentFailure('Background heartbeat is not advancing')
-    pids = adb.shell('pidof', PACKAGE).split()
-    if pids != [str(before['pid'])]:
-        raise ExperimentFailure('Fixture process is missing or ambiguous')
-    initial = adb.passive(before)
-    if initial.get('freezer_observation', {}).get('complete') is not False:
-        raise ExperimentFailure('Fixture is already frozen or the completed state is unavailable')
-    if not initial['capabilities']['binder_node']:
-        raise ExperimentFailure('Binder device observation is absent')
-    if adb.ams(before['pid']):
-        raise ExperimentFailure('AMS already lists the fixture as frozen')
-    report['before'] = {'heartbeat': before, 'probe': initial, 'ams_frozen': False}
-    report['exit_info_before'] = adb.shell('dumpsys', 'activity', 'exit-info', PACKAGE)
-    (output / 'result.json').write_text(json.dumps(report, indent=2))
-    marker = output / 'verified-thaw.marker'
-    watchdog_result = output / 'watchdog-result.json'
-    watchdog = subprocess.Popen([sys.executable, __file__, '--watchdog', '--serial', args.serial,
-                                 '--adb', args.adb, '--marker', str(marker),
-                                 '--watchdog-result', str(watchdog_result)],
-                                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                                stderr=subprocess.DEVNULL, start_new_session=True)
+    output.mkdir(parents=True, exist_ok=False)
+    report = {'scope': PACKAGE, 'serial': args.serial, 'mode': args.mode,
+              'started_at': timestamp(), 'passed': False, 'result': 'INCOMPLETE'}
+    adb = Adb(args.adb, args.serial, evidence=output / 'adb-commands.jsonl')
+    watchdog = None
+    cleanup_needed = False
     try:
+        adb.validate_vm()
+        report['boot_id'] = adb.boot_id()
+        report['fingerprint'] = adb.shell('getprop', 'ro.build.fingerprint')
+        binary = Path(args.probe).resolve()
+        if not binary.is_file() or binary.read_bytes()[:4] != b'\x7fELF':
+            raise ExperimentFailure('An actual compiled Android ELF probe is required')
+        report['probe_sha256'] = sha256(binary)
+        adb.command('push', str(binary), REMOTE_PROBE)
+        adb.shell('chmod', '700', REMOTE_PROBE)  # Our uploaded file only.
+        report['capabilities'] = adb.probe()
+        if args.mode == 'probe':
+            report.update(passed=True, result='READ_ONLY_PROBE_COMPLETE')
+            return report
+        apk = Path(args.apk).resolve()
+        if not apk.is_file():
+            raise ExperimentFailure('A locally built test fixture APK is required')
+        report['apk_sha256'] = sha256(apk)
+        badging = subprocess.run([args.aapt, 'dump', 'badging', str(apk)], check=True,
+                                 capture_output=True, text=True, timeout=20).stdout
+        manifest = subprocess.run([args.aapt, 'dump', 'xmltree', str(apk), 'AndroidManifest.xml'],
+                                  check=True, capture_output=True, text=True, timeout=20).stdout
+        (output / 'apk-badging.txt').write_text(badging)
+        (output / 'apk-manifest.txt').write_text(manifest)
+        if not re.search(r"^package: name='org.guizang.fixture' ", badging, re.M) or 'uses-permission' in badging:
+            raise ExperimentFailure('APK is not the permission-free fixture')
+        if re.search(r'E: (service|receiver|provider|activity-alias)\b|sharedUserId', manifest):
+            raise ExperimentFailure('Unexpected fixture component or shared UID')
+        report['installation'] = prepare_fixture(adb, apk, report['boot_id'], args.receipt, args.reuse_fixture)
+        help_text = adb.shell('am', 'help')
+        if not all(re.search(r'^\s*' + op + r'(?:\s|\[)', help_text, re.M) for op in ('freeze', 'unfreeze')):
+            raise ExperimentFailure('Image does not advertise AMS freezer commands; no fallback')
+        adb.shell('am', 'start', '-W', '-n', PACKAGE + '/.MainActivity', timeout=30)
+        first = wait_until(adb.heartbeat, lambda h: h['counter'] >= 1, retry_unavailable=True)
+        adb.shell('input', 'keyevent', 'KEYCODE_HOME')
+        before = wait_until(adb.heartbeat, lambda h: h['counter'] > first['counter'])
+        if not same_instance(first, before):
+            raise ExperimentFailure('Background heartbeat changed process')
+        if adb.shell('pidof', PACKAGE).split() != [str(before['pid'])]:
+            raise ExperimentFailure('Fixture process is missing or ambiguous')
+        initial = adb.passive(before)
+        require_kernel(initial, False)
+        if adb.ams(before['pid']):
+            raise ExperimentFailure('AMS already lists the fixture as frozen')
+        report['before'] = {'observed_at': timestamp(), 'heartbeat': before, 'probe': initial, 'ams_frozen': False}
+        report['exit_info_before'] = adb.shell('dumpsys', 'activity', 'exit-info', PACKAGE)
+        report['fixture_logcat_before'] = adb.logs(before['pid'])
+        if EXIT_HEADER not in report['exit_info_before'] or 'Historical Process Exit' in report['exit_info_before']:
+            raise ExperimentFailure('Initial fixture exit history is not clean and observable')
+        marker = output / 'verified-thaw.marker'
+        context = output / 'watchdog-context.json'
+        save_json(context, {'boot_id': report['boot_id'], 'heartbeat': before})
+        save_json(output / 'result.json', report)
+        watchdog = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), '--watchdog',
+            '--serial', args.serial, '--adb', args.adb, '--marker', str(marker),
+            '--watchdog-result', str(output / 'watchdog-result.json'), '--watchdog-identity', str(context)],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        report['watchdog_pid'] = watchdog.pid
+        cleanup_needed = True
         report['freeze_acceptance'] = adb.freeze()
         frozen = wait_until(lambda: adb.passive(before), lambda p: p.get('freezer_observation', {}).get('complete') is True)
+        require_kernel(frozen, True)
         if not adb.ams(before['pid']):
             raise ExperimentFailure('AMS does not corroborate the frozen fixture')
         frozen_start = adb.heartbeat()
         time.sleep(1.2)
         frozen_end = adb.heartbeat()
-        if not same_instance(before, frozen_end) or frozen_start['counter'] != frozen_end['counter']:
+        if (not same_instance(before, frozen_start) or not same_instance(before, frozen_end)
+                or frozen_start['counter'] != frozen_end['counter']):
             raise ExperimentFailure('Frozen fixture heartbeat did not plateau on the same process')
-        if adb.passive(before).get('freezer_observation', {}).get('complete') is not True:
-            raise ExperimentFailure('Spontaneous thaw during frozen observation')
-        report['frozen'] = {'probe': frozen, 'heartbeat_start': frozen_start, 'heartbeat_end': frozen_end, 'ams_frozen': True}
-        (output / 'result.json').write_text(json.dumps(report, indent=2))
+        require_kernel(adb.passive(before), True)
+        if not adb.ams(before['pid']):
+            raise ExperimentFailure('Spontaneous AMS thaw during frozen observation')
+        report['frozen'] = {'observed_at': timestamp(), 'probe': frozen, 'heartbeat_start': frozen_start,
+                            'heartbeat_end': frozen_end, 'ams_frozen': True}
+        save_json(output / 'result.json', report)
         if args.fault_coordinator_exit:
-            # Deliberately bypass this process's finally; independent watchdog owns thaw.
-            os._exit(73)
+            os._exit(73)  # Intentionally bypass finally; independent watchdog owns recovery.
         report['thaw_acceptance'] = adb.thaw()
-        thawed = wait_until(lambda: adb.passive(before), lambda p: p.get('freezer_observation', {}).get('complete') is False)
-        if adb.ams(before['pid']):
-            raise ExperimentFailure('AMS still lists the fixture as frozen')
-        resumed = wait_until(adb.heartbeat, lambda h: h['counter'] > frozen_end['counter'])
-        if not same_instance(before, resumed):
-            raise ExperimentFailure('Restart is not a successful thaw')
-        report['resumed'] = {'heartbeat': resumed, 'probe': thawed, 'ams_frozen': False}
-        report['exit_info_after'] = adb.shell('dumpsys', 'activity', 'exit-info', PACKAGE)
-        report['fixture_logcat'] = adb.shell('logcat', '-d', '-v', 'threadtime', '--pid=' + str(before['pid']), '-t', '1000')
-        # Kernel completion + heartbeat are recorded; AMS/logcat corroboration remains mandatory.
-        report['passed'] = False
-        report['result'] = 'AMS_kernel_and_heartbeat_observed; requires_exit_log_review'
+        report['resumed'] = observe_thaw(adb, before, frozen_end['counter'])
+        collect_diagnostics(adb, report)
         marker.write_text('verified same-instance thaw\n')
-        watchdog.wait(timeout=2)
+        watchdog.wait(timeout=3)
+        report['watchdog_exit'] = watchdog.returncode
+        if watchdog.returncode != 0:
+            raise ExperimentFailure('Cleanup watchdog did not exit normally')
+        cleanup_needed = False
+        report.update(passed=True, result='BOUNDED_FIXTURE_EVIDENCE_PASS')
+        return report
+    except BaseException as error:
+        report.update(passed=False, result='FAIL', error=str(error))
+        raise
     finally:
-        # Bound to the literal fixture package, never an arbitrary or reused PID.
-        try:
-            report['cleanup_acceptance'] = adb.thaw()
-        except Exception as error:
-            report['cleanup_error'] = type(error).__name__
-        (output / 'result.json').write_text(json.dumps(report, indent=2))
-    print(json.dumps(report, indent=2))
+        if cleanup_needed:
+            try:
+                # Bound to this boot/process and literal package; no arbitrary PID write.
+                if adb.boot_id() != report['boot_id']:
+                    raise ExperimentFailure('Refusing cleanup on a different VM boot')
+                identity = report['before']['heartbeat']
+                adb.passive(identity)
+                report['cleanup_acceptance'] = adb.thaw()
+                report['cleanup_resumed'] = observe_thaw(adb, identity, adb.heartbeat()['counter'])
+                marker.write_text('verified same-instance cleanup thaw\n')
+            except Exception as error:
+                report['cleanup_error'] = str(error)
+            if watchdog:
+                try:
+                    watchdog.wait(timeout=65)
+                    report['watchdog_exit'] = watchdog.returncode
+                except subprocess.TimeoutExpired:
+                    report['cleanup_error'] = 'Watchdog did not exit within its cleanup budget'
+        report['finished_at'] = timestamp()
+        save_json(output / 'result.json', report)
 
 
 def main():
@@ -274,15 +452,19 @@ def main():
     parser.add_argument('--probe')
     parser.add_argument('--apk')
     parser.add_argument('--aapt', default='aapt')
+    parser.add_argument('--receipt')
+    parser.add_argument('--reuse-fixture', action='store_true')
     parser.add_argument('--fault-coordinator-exit', action='store_true')
     parser.add_argument('--output')
     parser.add_argument('--watchdog', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--marker', help=argparse.SUPPRESS)
     parser.add_argument('--watchdog-result', help=argparse.SUPPRESS)
+    parser.add_argument('--watchdog-identity', help=argparse.SUPPRESS)
     args = parser.parse_args()
     try:
         if args.watchdog:
-            cleanup_watchdog(Adb(args.adb, args.serial), Path(args.marker), Path(args.watchdog_result))
+            cleanup_watchdog(Adb(args.adb, args.serial, evidence=Path(args.watchdog_result).with_suffix('.jsonl')),
+                             Path(args.marker), Path(args.watchdog_result), Path(args.watchdog_identity))
         else:
             if not args.probe or not args.output or (args.mode == 'freeze-test' and not args.apk):
                 parser.error('--probe, --output, and --apk for freeze-test are required')
