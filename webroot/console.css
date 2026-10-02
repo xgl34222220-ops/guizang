@@ -1,0 +1,87 @@
+/* Mobile-console direction. Home is intentionally the only newly designed content page. */
+:root{--bg:#f4f5f9;--surface:#fff;--ink:#181d28;--muted:#8b909c;--line:#eceef3;--accent:#3478f6;--green:#3567bd;--sage:#eaf0fd;--orange:#e9edfa;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans CJK SC",sans-serif}.brand .mark{color:#437dee}.brand{letter-spacing:1px}.sidebar{background:#fafbfe}.sidebar nav a{border-radius:11px}.sidebar nav a.active{background:#eaf0fd;color:#3478f6}.sidebar-foot,.sidebar-foot .small-dot{color:#8b909c}nav a span{display:flex;justify-content:center;align-items:center;width:24px}nav a span svg{flex:none}body[data-view=overview] header{display:none}body[data-view=overview] main{padding:45px 0 18px}body[data-view=overview] footer{display:none}.console-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:26px}.console-kicker{font-size:12px;color:#9297a2;margin:0 0 8px;letter-spacing:.4px}.console-top h1{font-size:32px;font-weight:690;letter-spacing:-.9px;margin:0;line-height:1.2}.offline-badge{font-size:12px;color:#848b98;display:flex;align-items:center;gap:6px;border:1px solid #e2e5ed;padding:7px 10px;border-radius:20px}.offline-badge>span{width:5px;height:5px;border-radius:50%;background:#a8aeb9}.device-panel{padding:25px 27px 20px;border-radius:22px;background:#1b2232;color:#fff;box-shadow:0 7px 20px #1d2a4510;position:relative;overflow:hidden}.device-panel-top{display:flex;align-items:center;justify-content:space-between;gap:15px}.panel-eyebrow{font-size:12px;color:#a8b1c2;letter-spacing:.4px}.device-panel h2{font-size:24px;font-weight:610;letter-spacing:-.3px;margin:9px 0 6px}.device-panel p{font-size:12px;color:#a8b1c2;margin:0}.power-icon{width:51px;height:51px;border-radius:17px;display:grid;place-items:center;color:#c0c9db;background:#30394b;flex:none}.device-facts{display:flex;gap:18px;margin-top:25px;padding-top:17px;border-top:1px solid #ffffff13;color:#8994a9;font-size:12px}.device-facts span{display:flex;gap:10px;align-items:center;min-width:0;flex:1}.device-facts strong{font-weight:500;color:#b9c4d8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.connection-button{display:flex;align-items:center;justify-content:center;gap:9px;border:0;background:#377bf2;color:#fff;border-radius:12px;min-height:44px;width:100%;margin-top:20px;font-size:13px;font-weight:590;letter-spacing:.3px}.connection-button:hover{background:#2d70e4}.connection-button:active{transform:scale(.992)}.connection-button:focus-visible{outline:3px solid #98b9ff;outline-offset:4px}.console-section-heading{display:flex;align-items:center;justify-content:space-between;margin:26px 4px 12px}.console-section-heading h2{font-size:15px;font-weight:640;margin:0}.console-section-heading>span{font-size:11px;color:#9299a6}.control-group{background:#fff;border-radius:19px;padding:0 18px}.control-row{display:flex;align-items:center;gap:13px;min-height:78px;border-bottom:1px solid #f0f1f5}.control-row:last-child{border-bottom:0}.control-row>svg{color:#bcc0c9;flex:none}.control-icon{width:39px;height:39px;display:grid;place-items:center;border-radius:12px;flex:none}.control-icon.ice{background:#edf3ff;color:#4e80d7}.control-icon.violet{background:#f0edff;color:#8570cd}.control-icon.steel{background:#edf1f6;color:#6f839d}.control-copy{flex:1;min-width:0}.control-copy strong{display:block;font-size:15px;font-weight:590;letter-spacing:.1px}.control-copy small{display:block;font-size:11px;color:#a0a5b1;margin-top:5px}.control-status{font-size:11px;color:#9aa1ad;white-space:nowrap}.control-row:hover .control-copy strong{color:#3478f6}.capability-list{background:#fff;border-radius:18px;padding:5px 20px}.capability-list>div{display:flex;align-items:center;justify-content:space-between;height:44px;border-bottom:1px solid #f1f2f6;font-size:13px;color:#515968}.capability-list>div:last-child{border:0}.cap-state{font-size:11px;color:#9fa6b3}.cap-state:before{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;background:#b7beca;margin-right:7px;vertical-align:middle}.console-footnote{display:flex;align-items:center;justify-content:center;gap:6px;font-size:10px;color:#a5acb9;margin:18px 0 4px}.console-footnote svg{color:#aeb6c3}#connection-dialog{border:0;border-radius:23px;width:calc(100% - 32px);max-width:385px;padding:26px;color:#1a2232;box-shadow:0 15px 80px #0b173833;background:#fff}#connection-dialog::backdrop{background:#111a2b66;backdrop-filter:blur(4px)}#connection-dialog h2{font-size:20px;margin:6px 0 14px}#connection-dialog p{font-size:14px;color:#858d9e;line-height:1.8}.dialog-handle{display:none}@media(min-width:701px){body[data-view=overview] .workspace{max-width:950px;margin:0 auto;width:100%}body[data-view=overview] main{display:grid;grid-template-columns:1fr 1fr;column-gap:24px}.console-top,.device-panel,.console-footnote{grid-column:1/-1}.device-panel{display:grid;grid-template-columns:1fr 1fr;gap:0 40px}.device-facts{grid-column:1;margin-top:20px}.device-panel .connection-button{grid-column:2;grid-row:1/3;align-self:center;max-width:220px;justify-self:end;margin:0}.console-section-heading:nth-of-type(3){grid-column:2;grid-row:3}.control-group{grid-column:1;grid-row:4}.capability-list{grid-column:2;grid-row:4;align-self:start}.console-section-heading{grid-row:3}.console-section-heading:nth-of-type(2){grid-column:1}}@media(max-width:700px){.workspace{padding:0 22px}body[data-view=overview] main{padding:25px 0 96px}.console-top{margin-bottom:23px}.console-top h1{font-size:31px}.console-kicker{font-size:11px;margin-bottom:6px}.offline-badge{font-size:11px;padding:7px 10px}.device-panel{padding:21px 20px 18px;border-radius:21px}.device-panel h2{font-size:23px}.device-panel p{font-size:11px}.panel-eyebrow{font-size:11px}.power-icon{width:45px;height:45px;border-radius:14px}.device-facts{margin-top:20px;padding-top:14px;gap:12px;font-size:11px}.device-facts span{gap:7px}.connection-button{margin-top:17px;min-height:43px;font-size:13px}.console-section-heading{margin:23px 2px 11px}.console-section-heading h2{font-size:14px}.console-section-heading>span{font-size:10px}.control-group{padding:0 16px;border-radius:18px}.control-row{min-height:74px;gap:11px}.control-icon{width:36px;height:36px;border-radius:11px}.control-icon svg{width:21px;height:21px}.control-copy strong{font-size:14px}.control-copy small{font-size:10px}.control-status{font-size:10px}.capability-list{border-radius:18px;padding:3px 17px}.capability-list>div{font-size:12px;height:41px}.cap-state{font-size:10px}.console-footnote{font-size:10px;margin-top:17px}nav{background:#fcfcffed;border-top:1px solid #e7eaf3;padding:7px 13px calc(11px + env(safe-area-inset-bottom));box-shadow:0 -8px 28px #f4f5f922}nav a{padding:7px 0 3px;gap:5px;font-size:10px;color:#9aA2b0;border-radius:0}nav a.active{color:#3478f6;background:none;font-weight:600}nav a:hover{background:none}nav a span{height:24px;width:26px}nav a.active span{position:relative}nav a.active span:before{content:"";position:absolute;inset:-4px -12px;background:#e9effb;border-radius:18px;z-index:-1}#connection-dialog{position:fixed;inset:auto 10px 10px;margin:0;width:calc(100% - 20px);max-width:none;padding:22px 25px 26px}.dialog-handle{display:block;width:32px;height:4px;border-radius:4px;background:#d8dce4;margin:-8px auto 22px}.preview{background:#eef2f9;border-color:#e3e8f1;color:#7a89a2}.preview span{background:#9ca9bd}}@media(max-width:355px){.workspace{padding:0 16px}.control-group{padding:0 12px}.control-row{gap:9px}.control-copy small{font-size:9px}.control-status{font-size:9px}.device-facts{font-size:10px;gap:8px}.device-facts span{gap:5px}}@media(prefers-reduced-motion:no-preference){.connection-button,.control-row{transition:transform .16s,color .16s,background .16s}}
+/* Keep utility text legible instead of using tiny decorative labels. */
+.console-kicker,.panel-eyebrow,.device-panel p,.device-facts,.offline-badge{font-size:12px}.control-copy strong{font-size:15px}.control-copy small,.control-status,.console-section-heading>span,.cap-state{font-size:12px}.control-copy small,.control-status,.cap-state{color:#7d8799}.console-section-heading>span{color:#818b9c}.connection-button{font-size:14px;min-height:44px}.console-footnote{color:#858fa1;font-size:11px}@media(max-width:355px){.control-copy small{font-size:11px}.control-status{font-size:10px}.control-row{gap:8px}.device-facts{font-size:11px}.console-section-heading>span,.cap-state{font-size:11px}}
+
+/* Home material pass: measured from the approved porcelain homepage concept.
+   The device state canvas stays open; only the controls and dock have glass edges. */
+body[data-view="overview"]{background:#f2f6f9;color:#0b111b;-webkit-font-smoothing:antialiased}
+body[data-view="overview"] .workspace{position:relative;isolation:isolate}
+body[data-view="overview"] .workspace::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 90% 36%,#e5eef52e,transparent 52%),linear-gradient(120deg,#f8fafc90,#eef4f940)}
+body[data-view="overview"] .console-top{display:flex;align-items:center;justify-content:space-between;margin:0 0 40px}
+body[data-view="overview"] .home-wordmark{display:flex;align-items:center;gap:12px}
+body[data-view="overview"] .home-wordmark>svg{width:38px;height:38px;stroke:#0b111b;stroke-width:.8;flex:none}
+body[data-view="overview"] .console-top h1{margin:0;font-size:38px;font-weight:730;letter-spacing:-1.4px;line-height:1.2;color:#090f18}
+body[data-view="overview"] .offline-badge{display:flex;align-items:center;gap:9px;border:1px solid #d5dee9;border-radius:24px;padding:8px 13px;font-size:12px;color:#263142;background:#ffffff30;box-shadow:inset 0 1px 0 #fff;white-space:nowrap}
+body[data-view="overview"] .offline-badge>span{width:7px;height:7px;background:#8995a7}
+body[data-view="overview"] .device-panel{display:block;padding:0;border:0;border-radius:0;background:none;color:#0b111b;box-shadow:none;overflow:visible}
+body[data-view="overview"] .device-panel-top{display:flex;align-items:center;justify-content:space-between;min-height:135px;gap:8px}
+body[data-view="overview"] .panel-eyebrow{font-size:13px;color:#768397;letter-spacing:0}
+body[data-view="overview"] .device-panel h2{font-size:37px;line-height:1.25;font-weight:650;letter-spacing:-1.4px;margin:17px 0 15px;max-width:225px;overflow-wrap:anywhere}
+body[data-view="overview"] .device-panel p{color:#778397;font-size:13px;line-height:1.5;margin:0;white-space:nowrap}
+body[data-view="overview"] .connection-dial{display:block;width:122px;height:122px;flex:none;margin-right:-5px}
+body[data-view="overview"] .connection-dial svg{display:block;width:100%;height:100%}
+body[data-view="overview"] .device-facts{display:flex;gap:0;margin-top:15px;padding:13px 0;border-top:1px solid #dbe4ed;border-bottom:1px solid #dbe4ed;color:#718097;font-size:12px}
+body[data-view="overview"] .device-facts span{display:flex;flex:1;min-width:0;flex-direction:column;align-items:center;gap:5px;border-right:1px solid #d7e0e9;line-height:1.4}
+body[data-view="overview"] .device-facts span:last-child{border:0}
+body[data-view="overview"] .device-facts strong{display:block;max-width:100%;font-size:15px;color:#253244;line-height:1.2;font-weight:500;margin:0}
+body[data-view="overview"] .connection-button{display:flex;align-items:center;justify-content:flex-end;gap:8px;width:auto;min-width:110px;min-height:44px;padding:0;margin:8px 0 0 auto;border:0;border-radius:8px;box-shadow:none;background:none;color:#086aff;font-size:13px;font-weight:500;letter-spacing:0}
+body[data-view="overview"] .connection-button:hover{background:#e8f0fb80}
+body[data-view="overview"] .console-section-heading{display:flex;align-items:center;justify-content:space-between;margin:23px 0 13px}
+body[data-view="overview"] .console-section-heading h2{font-size:27px;font-weight:670;letter-spacing:-.6px;line-height:1.25;margin:0;color:#0b111b}
+body[data-view="overview"] .console-section-heading>span{display:flex;align-items:center;gap:7px;font-size:12px;color:#65748b}
+body[data-view="overview"] .control-group{padding:0 13px;margin:0 -10px;border:1px solid #d5dfeb;border-radius:20px;background:#ffffff20;box-shadow:inset 0 0 0 1px #ffffffd9;display:block}
+body[data-view="overview"] .control-row{display:flex;align-items:center;gap:14px;min-height:76px;border:0;border-bottom:1px solid #dce5ef;background:none;padding:0 8px;border-radius:0;box-shadow:none}
+body[data-view="overview"] .control-row:last-child{border:0}
+body[data-view="overview"] .control-icon{display:grid;place-items:center;flex:none;width:35px;height:40px;background:none;border-radius:0;color:#0b111b;box-shadow:none}
+body[data-view="overview"] .control-icon svg{width:30px;height:30px;stroke-width:1.6}
+body[data-view="overview"] .control-copy{flex:1;min-width:0}
+body[data-view="overview"] .control-copy strong{color:#101925;font-size:16px;font-weight:510;letter-spacing:-.2px;line-height:1.3}
+body[data-view="overview"] .control-copy small{font-size:12px;color:#79869a;line-height:1.4;margin-top:5px;white-space:nowrap}
+body[data-view="overview"] .control-status{color:#57667b;font-size:11px;border:1px solid #c7d2e0;border-radius:16px;background:#e8edf350;padding:4px 10px;white-space:nowrap;line-height:1.35;box-shadow:inset 0 1px 0 #ffffff8c}
+body[data-view="overview"] .control-row>svg{flex:none;width:12px;height:16px;color:#65758b;stroke-width:1.65;margin-left:0}
+body[data-view="overview"] .console-footnote{display:flex;align-items:center;justify-content:flex-start;gap:7px;font-size:11px;color:#68778d;margin:14px 0 0;line-height:1.5}
+body[data-view="overview"] .console-footnote svg{width:14px;height:14px;color:#738297}
+body[data-view="overview"] #connection-dialog{background:#f5f8fc;border-radius:24px;box-shadow:0 18px 60px #1d2f4b33}
+body[data-view="overview"] #connection-dialog .connection-button{margin:16px 0 0 auto}
+@media(min-width:701px){
+ body[data-view="overview"] main{display:block;max-width:660px;margin:auto}
+ body[data-view="overview"] .device-panel .connection-button{margin:8px 0 0 auto}
+ body[data-view="overview"] .device-panel-top{max-width:none}
+ body[data-view="overview"] .console-top{margin-bottom:45px}
+ body[data-view="overview"] .control-group{margin:0}
+ body[data-view="overview"] .connection-dial{width:140px;height:140px;margin-right:15px}
+}
+@media(max-width:700px){
+ body[data-view="overview"] .workspace{padding:0 27px;min-height:100svh}
+ body[data-view="overview"] main { padding: 45px 0 120px; }
+ body[data-view="overview"] .sidebar nav{left:18px;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));min-height:63px;padding:4px;gap:2px;border:1px solid #fffffff5;border-radius:21px;background:linear-gradient(130deg,#ffffff90,#f6faff65);box-shadow:inset 0 0 0 1px #ffffffdc,0 8px 20px -7px #6882a02e;backdrop-filter:blur(28px) saturate(125%);-webkit-backdrop-filter: blur(28px) saturate(125%)}
+ body[data-view="overview"] .sidebar nav a{justify-content:center;border-radius:16px;padding:7px 0 5px;gap:5px;color:#627087;font-size:11px;line-height:1.3;font-weight:400;background:none}
+ body[data-view="overview"] .sidebar nav a.active{background:linear-gradient(145deg,#dfedffcf,#e7f1ffb0);color:#0872ff;box-shadow:none}
+ body[data-view="overview"] .sidebar nav a.active span::before{content:none}
+ body[data-view="overview"] .sidebar nav a span{width:23px;height:22px}
+ body[data-view="overview"] .sidebar nav a span svg{width:21px;height:21px;stroke-width:1.6}
+ body[data-view="overview"] .sidebar nav a.active span svg rect{fill:currentColor;stroke:none}
+}
+@media(max-width:355px){
+ body[data-view="overview"] .workspace{padding:0 22px}
+ body[data-view="overview"] main{padding-top:30px}
+ body[data-view="overview"] .console-top{margin-bottom:31px}
+ body[data-view="overview"] .home-wordmark{gap:9px}
+ body[data-view="overview"] .home-wordmark>svg{width:31px;height:31px}
+ body[data-view="overview"] .console-top h1{font-size:32px}
+ body[data-view="overview"] .offline-badge{font-size:10px;padding:7px 10px;gap:6px}
+ body[data-view="overview"] .device-panel h2{font-size:32px;margin:15px 0 13px}
+ body[data-view="overview"] .device-panel p{font-size:11px}
+ body[data-view="overview"] .connection-dial{width:100px;height:100px}
+ body[data-view="overview"] .device-facts{margin-top:19px}
+ body[data-view="overview"] .control-group{padding:0 9px;margin:0 -8px}
+ body[data-view="overview"] .control-row{min-height:72px;gap:10px;padding:0 4px}
+ body[data-view="overview"] .control-icon{width:28px}
+ body[data-view="overview"] .control-icon svg{width:26px;height:26px}
+ body[data-view="overview"] .control-copy strong{font-size:14px}
+ body[data-view="overview"] .control-copy small{font-size:10px}
+ body[data-view="overview"] .control-status{font-size:10px;padding:4px 8px}
+ body[data-view="overview"] .console-section-heading{margin-top:17px}
+ body[data-view="overview"] .sidebar nav{left:14px;right:14px}
+}

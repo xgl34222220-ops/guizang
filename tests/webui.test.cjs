@@ -1,0 +1,10 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const { initial, reduce } = require('../webroot/app.js');
+test('preview cannot sleep without explicit allowlist', () => { const s=initial(); assert.equal(reduce(s,'sleep').sleeping,false); assert.deepEqual(s,initial()); });
+test('allow, sleep, revoke, wake are coherent and repeatable', () => { let s=reduce(initial(),'allow'); s=reduce(s,'sleep'); assert.equal(s.sleeping,true); s=reduce(s,'allow'); assert.equal(s.sleeping,false); s=reduce(s,'wake'); assert.equal(s.sleeping,false); });
+test('third failure stops all simulation and cannot automatically re-enable', () => { let s=reduce(reduce(initial(),'allow'),'sleep'); for(let i=0;i<3;i++) s=reduce(s,'fail'); assert.equal(s.disabled,true); assert.equal(s.sleeping,false); s=reduce(s,'healthy'); s=reduce(s,'sleep'); assert.equal(s.disabled,true); assert.equal(s.sleeping,false); assert.equal(s.failures,3); });
+test('healthy check resets non-disabled failures; manual reset works', () => { let s=reduce(initial(),'fail'); s=reduce(s,'healthy'); assert.equal(s.failures,0); for(let i=0;i<5;i++) s=reduce(s,'fail'); s=reduce(s,'reset'); assert.deepEqual(s,initial()); });
+test('unknown actions are no-ops', () => assert.deepEqual(reduce(initial(),'<script>'),initial()));
+test('main UI has no arbitrary executor, network access or persistence', () => { const js=fs.readFileSync('webroot/app.js','utf8'); assert.doesNotMatch(js,/\bfetch\s*\(|XMLHttpRequest|WebSocket|localStorage|sessionStorage|\bexec\s*\(|\bksu\b|\bsu\s+/); const html=fs.readFileSync('webroot/index.html','utf8'); assert.match(html,/connect-src 'none'/); assert.match(html,/交互预览 · 未连接设备/); });

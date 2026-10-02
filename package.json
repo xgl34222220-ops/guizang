@@ -1,0 +1,7 @@
+{
+  "name": "guizang-prototype-tests",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": { "test": "node --test tests/webui.test.cjs", "test:browser": "node tools/ui-smoke.cjs" },
+  "devDependencies": { "playwright": "1.51.1" }
+}

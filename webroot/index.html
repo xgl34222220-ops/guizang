@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light"><meta name="theme-color" content="#f4f5f9">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>归藏 · 设备控制台</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="console.css"><link rel="stylesheet" href="features.css"><script src="build-config.js" defer></script><script src="bridge.js" defer></script><script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<div class="shell">
+<aside class="sidebar">
+<a class="brand" href="#overview" aria-label="归藏首页"><span class="mark" aria-hidden="true">◒</span><span>归藏<small>GUIZANG</small></span></a>
+<p class="nav-label">设备工作台</p>
+<nav aria-label="主导航">
+<a href="#overview" data-page="overview"><span aria-hidden="true">◫</span>总览</a>
+<a href="#apps" data-page="apps"><span aria-hidden="true">☷</span>应用休眠</a>
+<a href="#performance" data-page="performance"><span aria-hidden="true">⌁</span>场景调度</a>
+<a href="#recovery" data-page="recovery"><span aria-hidden="true">◇</span>启动保护</a>
+</nav>
+<div class="sidebar-foot"><span class="small-dot"></span>默认关闭真实执行<p>少一点打扰，多一点余地。</p><small>0.1.0 · DEVELOPMENT</small></div>
+</aside>
+<div class="workspace">
+<header><span class="breadcrumb">归藏 <span>/</span> <span id="breadcrumb">总览</span></span><span class="preview"><span></span>交互预览 · 未连接设备</span></header>
+<main id="main" tabindex="-1"></main>
+<footer>所有数值与应用均为演示数据。不会修改手机设置。<span>原型阶段 · 尚不可刷入</span></footer>
+</div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div><dialog id="connection-dialog" aria-labelledby="connection-title"><div class="dialog-handle"></div><h2 id="connection-title">当前是离线预览</h2><p>只读设备通道尚未开放。此页面不会授予 Root 权限或更改手机设置。</p><button class="connection-button" data-action="close-connection">知道了</button></dialog>
+</body></html>
