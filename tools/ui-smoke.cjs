@@ -30,13 +30,14 @@ const server=http.createServer((req,res)=>{ const asset=assets[req.url]; if(!ass
         assert.equal(await page.locator('main h1').count(),1);
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`overflow at ${viewport.width}/${section}`);
         if(section==='overview' && viewport.width<=700){
+          await page.screenshot({path:path.join(out,`${viewport.width}-overview-layout-check.png`)});
           const dock=await page.locator('nav').boundingBox();
           assert.ok(dock.x>0 && dock.x+dock.width<viewport.width,'floating dock keeps side gutters');
           assert.ok(dock.y+dock.height<viewport.height,'floating dock keeps bottom gutter');
           assert.equal(await page.locator('nav').evaluate(el=>getComputedStyle(el).backdropFilter.includes('blur')),true,'dock uses translucent blur');
           if(viewport.height>=800){
             const capabilities=await page.locator('.capability-list').boundingBox();
-            assert.ok(capabilities.y+capabilities.height<=dock.y,'capability values clear dock on standard phone');
+            assert.ok(capabilities.y+capabilities.height<=dock.y,`capability values clear dock: ${JSON.stringify({capabilities,dock})}`);
           }
           for(const target of await page.locator('nav a').all()){
             const box=await target.boundingBox();

@@ -149,7 +149,7 @@ body[data-view="overview"] .connection-button {
 body[data-view="overview"] .connection-button:hover { filter: brightness(1.035); }
 body[data-view="overview"] .connection-button:active { transform: scale(.985); }
 body[data-view="overview"] .console-section-heading {
-  margin: 27px 5px 12px;
+  margin: 21px 5px 10px;
   align-items: baseline;
 }
 body[data-view="overview"] .console-section-heading h2 {
@@ -217,7 +217,7 @@ body[data-view="overview"] .control-icon.steel { background: linear-gradient(150
 body[data-view="overview"] .capability-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  padding: 19px 6px;
+  padding: 15px 6px;
   border-radius: 22px;
 }
 body[data-view="overview"] .capability-list > div {
