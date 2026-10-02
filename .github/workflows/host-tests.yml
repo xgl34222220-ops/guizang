@@ -20,6 +20,7 @@ jobs:
           python-version: '3.12'
       - run: python3 -m unittest discover -s tests -v
       - run: sh tools/check.sh
+      - run: sh tools/native-check.sh
   webui:
     runs-on: ubuntu-latest
     timeout-minutes: 8
@@ -38,4 +39,26 @@ jobs:
         with:
           name: guizang-webui-evidence
           path: build/ui-evidence
+          retention-days: 14
+  android-compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile read-only native probe
+        run: |
+          export ANDROID_NDK_HOME="${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}"
+          sh tools/build-native-android.sh
+      - name: Build isolated fixture APK
+        run: sh tools/build-fixture.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guizang-android-compile-only
+          path: |
+            build/android/
+            build/fixture/guizang-fixture-debug.apk
           retention-days: 14

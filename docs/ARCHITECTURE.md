@@ -27,3 +27,7 @@
 Python 核心通过注入的 mock adapter 验证逻辑，不包含真实 freeze/sysfs 执行器。身份的前后读取不能消除 TOCTOU；未来 backend 必须提供 pidfd/等价原子身份保护。原值比较也不是原子 CAS；没有排他控制/兼容策略时禁止和系统或其他模块争写。
 
 BootGuard 的 JSON/fsync/锁测试是 host 参考，尚未连接模块 disable 标记。跨启动 pending 表示“上一次本模块健康握手未完成”，不证明故障由本模块引起；保守停用可以接受，但不能标成精确故障归因。真实健康条件不能仅用 sys.boot_completed，必须验证恢复记录、协调器、自检和宽限期。没有安装、开机故障注入或实机省电收益测试证据。
+
+## 第二阶段：只读Android桥接
+
+新增C++ probe与默认关闭的Root WebUI只读协议，源码与host验证先行，不连带获得任何VM/实体设备Root授权。设备端只读探针不是冻结执行器；Binder节点/pidfd/freezer文件存在都不能把freeze_ready置为true。实际AMS夹具实验另见VM-VALIDATION。

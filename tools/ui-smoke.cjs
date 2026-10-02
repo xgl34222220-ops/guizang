@@ -7,7 +7,7 @@ const assert = require('node:assert/strict');
 const root = path.resolve(__dirname, '../webroot');
 const out = path.resolve(process.env.UI_EVIDENCE || 'build/ui-evidence');
 const assets = {'/': ['index.html','text/html'], '/index.html':['index.html','text/html'],
-  '/app.js':['app.js','text/javascript'], '/style.css':['style.css','text/css']};
+  '/app.js':['app.js','text/javascript'], '/bridge.js':['bridge.js','text/javascript'], '/build-config.js':['build-config.js','text/javascript'], '/style.css':['style.css','text/css']};
 const server=http.createServer((req,res)=>{ const asset=assets[req.url]; if(!asset){res.writeHead(404);res.end();return;} res.writeHead(200,{'Content-Type':asset[1]});res.end(fs.readFileSync(path.join(root,asset[0]))); });
 (async()=>{
   fs.mkdirSync(out,{recursive:true});

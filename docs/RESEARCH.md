@@ -20,3 +20,7 @@
 ## 未纳入内容
 
 不导入第三方闭源二进制，不注入 SurfaceFlinger，不杀厂商温控/调度服务，不用随机网上调参集合。Android 11+ 的 AOSP 功能存在不等于任意 OEM ROM 可安全外部控制；目前没有宣布任何系统/Root管理器完成兼容。
+
+## Android接口追踪补充
+
+核对AOSP android16-release的CachedAppOptimizer：冻结与解冻都先处理Binder，再处理进程freeze状态，并包含事务失败/终止处理。因此不能自行反转顺序或仅写cgroup节点。Android14至16的ActivityManagerShellCommand提供AMS管理的夹具实验路线，但shell不接收pidfd/expected-starttime，前后身份检查并非原子保障。只在隔离VM唯一测试包范围研究，生产执行仍封闭。KernelSU官方WebUI文档与npm kernelsu 3.0.2(声明Apache-2.0)用于核对exec回调ABI；项目只写独立固定命令适配器，没有复制其实现。

@@ -3,7 +3,8 @@ set -eu
 cd "$(dirname "$0")/.."
 for file in module/*.sh tools/*.sh; do sh -n "$file"; done
 node --check webroot/app.js
-node --test tests/webui.test.cjs
+node --check webroot/bridge.js
+node --test tests/*.test.cjs
 python3 -m compileall -q core tests
 # Never accidentally distribute an active module or executable third-party payload.
 test ! -e module/post-fs-data.sh
