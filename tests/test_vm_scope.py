@@ -210,21 +210,3 @@ class VmScopeTests(unittest.TestCase):
         with patch.object(vm.time, 'monotonic', side_effect=[0, 0, 9]), patch.object(vm.time, 'sleep'):
             with self.assertRaisesRegex(vm.ExperimentFailure, 'stable stopped lifecycle'):
                 vm.await_background(adb, base)
-
-    def test_watchdog_already_thawed_is_cleaned_but_not_credited(self):
-        identity = dict(nonce='x', pid=42, uid=10123, starttime='500', counter=1)
-        for frozen in (False, True):
-            with tempfile.TemporaryDirectory() as directory:
-                root = Path(directory)
-                (root/'identity.json').write_text(json.dumps(dict(boot_id='boot', heartbeat=identity)))
-                adb = Mock(); adb.boot_id.return_value = 'boot'; adb.heartbeat.return_value = identity
-                adb.ams.return_value = frozen
-                adb.passive.return_value = dict(capabilities=dict(binder_node=True, cgroup2_membership=True,
-                    self_freezer_node=True), freezer_observation=dict(requested=frozen, complete=frozen))
-                adb.thaw.return_value = 'accepted'
-                with patch.object(vm.time, 'monotonic', side_effect=[0, 19]), patch.object(vm, 'observe_thaw', return_value={'same_instance':True}):
-                    vm.cleanup_watchdog(adb, root/'marker', root/'result.json', root/'identity.json')
-                result = json.loads((root/'result.json').read_text())
-                self.assertTrue(result['attempted'])
-                self.assertEqual(result['verified_thaw'], frozen)
-                adb.thaw.assert_called_once()

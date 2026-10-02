@@ -68,3 +68,13 @@ cgroup.freeze只是请求值，cgroup.events frozen才是完成状态。freezer�
 AVD身份闸门同时核对只读 `ro.boot.qemu.avd_name`，必须精确等于本次创建的名称。`adb emu avd name` 成功但stdout为空时，保留原始命令证据并使用该boot属性；不再对空行列表取首项。非空console响应必须为相同名称（可带末行 `OK`），任何冲突、拒绝、超时或缺失boot属性均在Root/安装前停止。此修正不改变镜像/架构/调试身份、独占端口和全新AVD的其他闸门。
 
 2026-10-02 VM迭代：API35只读探测已实测完成；首次夹具冻结时onStop尚未完成，kernel/AMS短暂冻结后heartbeat继续，严格判失败，清理同实例解冻和AVD销毁均完成，不能记作冻结通过。后续runner在onStop后要求同生命周期至少两次heartbeat递增，才允许开始冻结；冻结观察只用已验证debug Root读取唯一夹具固定私有文件，不运行run-as进入夹具UID/cgroup。失败也保存冻结窗前后heartbeat、限定logcat与退出记录，原有1.2秒平台期、kernel与AMS双证据要求不变。
+
+## 协调器死亡触发（待本轮真实VM验收）
+
+独立watchdog先加载固定VM/夹具身份并通过READY握手，协调器才可提交冻结。协调器独占一个close-on-exec管道写端，watchdog只继承读端；协调器退出73或被杀后，EOF立即触发清理。18秒是从布置开始的最迟触发期限，不是保证解冻完成的期限；触发后的ADB I/O共用另一个20秒绝对预算，超时仍判未证实并由外层销毁AVD。
+
+冻结提交、正常解冻和watchdog清理共享宿主锁；watchdog取得锁后设置终止标记，迟到协调器不能在已开始清理后再提交冻结。完成标记包含随机token、boot ID、PID/UID/starttime/nonce，仅在核对同实例解冻后写入。异常收尾由watchdog单独执行，记录命令尝试后才调用unfreeze，即使命令异常也保留attempt证据。
+
+中断恢复通过必须同时有接手时kernel/AMS冻结、相同进程身份、解冻后heartbeat推进，以及本次watchdog命令时间窗内唯一新增的框架`sync unfroze … for 0`日志。API35 shell路径使用reason 0，不能误写为新版reason23；自然解冻、重复/缺失/过期或窗口外转换一律不作为watchdog因果证据。原1.2秒冻结平台期不缩短，不使用sticky或关闭系统保护。
+
+锁只能阻止尚未提交的冻结，不能撤销已发出的ADB/AMS请求。协调器若在冻结提交中途死亡或请求超时，仍按失败/不完整处理并销毁AVD，不宣称原子回滚；本轮退出73专门发生在完整冻结平台期证据之后。损坏或过期完成标记不能取消清理，也不能获得通过判定；身份仍匹配时watchdog会尝试安全解冻，否则依赖外层销毁AVD。

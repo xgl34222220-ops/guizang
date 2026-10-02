@@ -269,14 +269,16 @@ def run(args):
                 raise vm.ExperimentFailure('Normal freeze/thaw evidence incomplete')
             fault = round_run('coordinator-interruption', ['--mode', 'freeze-test',
                 '--reuse-fixture', '--fault-coordinator-exit'], expected_exit=73)
-            if not fault.get('frozen') or fault.get('boot_id') != report['boot_id']:
+            if (not fault.get('frozen') or fault.get('boot_id') != report['boot_id']
+                    or fault.get('watchdog_ready') is not True):
                 raise vm.ExperimentFailure('Coordinator did not exit from the verified frozen state')
             watchdog_path = output / 'coordinator-interruption/watchdog-result.json'
             deadline = time.monotonic() + 95
             while not watchdog_path.is_file() and time.monotonic() < deadline:
                 time.sleep(0.5)
             recovery = json.loads(watchdog_path.read_text())
-            if recovery.get('attempted') is not True or recovery.get('verified_thaw') is not True:
+            if (recovery.get('attempted') is not True or recovery.get('verified_thaw') is not True
+                    or recovery.get('trigger') != 'owner_eof' or not recovery.get('transition_review')):
                 raise vm.ExperimentFailure('Independent watchdog recovery is unproven')
             before = fault['before']['heartbeat']
             fault['resumed'] = vm.observe_thaw(adb, before, fault['frozen']['heartbeat_end']['counter'])

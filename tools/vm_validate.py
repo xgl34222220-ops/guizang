@@ -7,10 +7,13 @@ The acknowledgment flag is a guardrail, never a substitute for user authorizatio
 import argparse
 from datetime import datetime, timezone
 import hashlib
+import fcntl
 import json
 import os
 from pathlib import Path
 import re
+import select
+import secrets
 import subprocess
 import sys
 import time
@@ -88,12 +91,18 @@ class Adb:
     def __init__(self, executable, serial, run=subprocess.run, evidence=None):
         self.executable, self.serial, self.run = executable, validate_serial(serial), run
         self.evidence = Path(evidence) if evidence else None
+        self.deadline = None
 
     def command(self, *args, timeout=15, retain=None):
         record = {'started_at': timestamp(), 'args': list(map(str, args))}
         try:
+            if self.deadline is not None:
+                remaining = self.deadline - time.monotonic()
+                if remaining <= 0:
+                    raise ExperimentFailure('Bounded cleanup I/O deadline exceeded')
+                timeout = min(timeout, remaining)
             result = self.run([self.executable, '-s', self.serial, *map(str, args)],
-                              check=False, capture_output=True, text=True, timeout=timeout)
+                              check=False, capture_output=True, text=True, timeout=timeout, close_fds=True)
             stdout = retain(result.stdout) if retain else result.stdout
             record.update(returncode=result.returncode, stdout=stdout, stderr=result.stderr)
             if result.returncode:
@@ -168,10 +177,16 @@ class Adb:
             raise ExperimentFailure('Fixture process lifetime changed')
         return report
 
+    def guest_time(self):
+        value = self.shell('date', '+%s.%N')
+        if not re.fullmatch(r'[0-9]{10}\.[0-9]{9}', value):
+            raise ExperimentFailure('Guest epoch nanosecond clock unavailable')
+        return float(value)
+
     def logs(self, pid):
         # Keep only this fixture's lines, including system_server freezer messages.
         pattern = re.compile(r'(?<!\d)' + str(pid) + r'(?!\d)|' + re.escape(PACKAGE))
-        return self.shell('logcat', '-d', '-v', 'threadtime', '-b', 'main,system,crash',
+        return self.shell('logcat', '-d', '-v', 'epoch', '-v', 'usec', '-b', 'main,system,crash',
                           '-t', '10000', 'ActivityManager:D', 'AndroidRuntime:E', 'libc:F',
                           'DEBUG:F', '*:S', retain=lambda text: '\n'.join(
                               line for line in text.splitlines() if pattern.search(line)))
@@ -321,41 +336,210 @@ def collect_diagnostics(adb, report):
         report['fixture_logcat_before'], report['fixture_logcat_after'], pid)
 
 
-def cleanup_watchdog(adb, marker, result_path, identity_path):
-    # Separate process/session; a killed coordinator cannot cancel this deadline.
-    result = {'started_at': timestamp(), 'attempted': False, 'verified_thaw': False}
-    deadline = time.monotonic() + 18
-    while time.monotonic() < deadline:
-        if marker.exists():
-            result.update(cancelled_after_verified_thaw=True, finished_at=timestamp())
-            save_json(result_path, result)
+WATCHDOG_TRIGGER_SECONDS = 18
+WATCHDOG_IO_SECONDS = 20
+
+
+def validate_watchdog_context(context, serial):
+    if (context.get('schema') != 2 or context.get('package') != PACKAGE
+            or context.get('serial') != serial
+            or not re.fullmatch(r'[a-f0-9-]{36}', context.get('boot_id', ''))
+            or not re.fullmatch(r'[a-f0-9]{48}', context.get('token', ''))
+            or type(context.get('trigger_deadline')) not in (int, float)
+            or not 0 < context['trigger_deadline'] - time.monotonic() <= WATCHDOG_TRIGGER_SECONDS):
+        raise ExperimentFailure('Invalid watchdog scope or deadline')
+    require_heartbeat(context['heartbeat'])
+    return context
+
+
+def completion_value(context):
+    return {'token': context['token'], 'boot_id': context['boot_id'],
+            'identity': {key: context['heartbeat'][key] for key in ('pid', 'uid', 'starttime', 'nonce')}}
+
+
+def completion_matches(marker, context):
+    if not marker.exists():
+        return False
+    if marker.is_symlink() or json.loads(marker.read_text()) != completion_value(context):
+        raise ExperimentFailure('Completion marker identity mismatch')
+    return True
+
+
+def record_completion(marker, context):
+    # Caller has just verified kernel, AMS and advancing same-instance heartbeat.
+    save_json(marker, completion_value(context))
+
+
+def wait_for_owner(death_fd, marker, context):
+    while True:
+        try:
+            if completion_matches(marker, context):
+                return 'verified_completion'
+        except (ExperimentFailure, ValueError, OSError):
+            return 'invalid_completion_marker'
+        remaining = context['trigger_deadline'] - time.monotonic()
+        if remaining <= 0:
+            return 'absolute_deadline'
+        readable, _, _ = select.select([death_fd], [], [], min(0.1, remaining))
+        if readable:
+            if os.read(death_fd, 1) != b'':
+                raise ExperimentFailure('Unexpected data on owner death pipe')
+            return 'owner_eof'
+
+
+def acquire_lease(stream, deadline):
+    while True:
+        try:
+            fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
             return
-        time.sleep(0.2)
+        except BlockingIOError:
+            if time.monotonic() >= deadline:
+                raise ExperimentFailure('Freeze/cleanup lease deadline exceeded')
+            time.sleep(0.02)
+
+
+def submit_freeze(adb, lease, fence, deadline):
+    with lease.open('r+') as stream:
+        acquire_lease(stream, deadline)
+        if fence.exists() or time.monotonic() >= deadline:
+            raise ExperimentFailure('Watchdog fenced late freeze submission')
+        # Client timeout bounds this lease; ambiguous timeout remains FAIL and
+        # the outer runner destroys the disposable VM rather than claiming safety.
+        old = adb.deadline
+        adb.deadline = deadline
+        try:
+            return adb.freeze()
+        finally:
+            adb.deadline = old
+
+
+def review_watchdog_transition(before_logs, after_logs, pid, started, finished):
+    if not started <= finished:
+        raise ExperimentFailure('Guest command clock moved backwards')
+    old = set(before_logs.splitlines())
+    fresh = [line for line in after_logs.splitlines() if line not in old]
+    target = str(pid) + r'\s+' + re.escape(PACKAGE) + r'\b'
+    # Quick-unfreeze can thaw kernel/Binder without clearing AMS bookkeeping.
+    # It lacks the package in AOSP logs, so include exact PID-only transitions.
+    pid_token = r'(?<![0-9])' + str(pid) + r'(?![0-9])'
+    transitions = [line for line in fresh if re.search(pid_token, line)
+                   and re.search(r'\b(?:unfroze|unfreeze|freezing|froze)\b', line)]
+    if len(transitions) != 1:
+        raise ExperimentFailure('Missing or ambiguous fresh watchdog transition')
+    line = transitions[0]
+    match = re.match(r'^\s*([0-9]+\.[0-9]+)\s+', line)
+    if (not match or not re.search(r'\bsync unfroze\s+' + target + r' for 0\s*$', line)
+            or not started <= float(match[1]) <= finished):
+        raise ExperimentFailure('Watchdog transition is natural, stale, or outside command window')
+    return {'fresh_reason_zero_transition': line, 'guest_command_window': [started, finished],
+            'attribution': 'API35 shell reason 0, sole cleanup writer, frozen handoff, bounded fresh log'}
+
+
+def cleanup_watchdog(adb, marker, result_path, context, death_fd, ready_fd, lease, fence):
+    result = {'started_at': timestamp(), 'attempted': False, 'verified_thaw': False,
+              'trigger_budget_seconds': WATCHDOG_TRIGGER_SECONDS,
+              'cleanup_io_budget_seconds': WATCHDOG_IO_SECONDS}
     try:
-        context = json.loads(identity_path.read_text())
-        adb.validate_vm()
-        if adb.boot_id() != context['boot_id']:
-            raise ExperimentFailure('Watchdog refuses a replacement VM boot')
-        before = context['heartbeat']
-        initial = adb.passive(before)
-        initial_ams = adb.ams(before['pid'])
-        result['before_cleanup'] = {'probe': initial, 'ams_frozen': initial_ams}
-        current = adb.heartbeat()
-        if not same_instance(before, current):
-            raise ExperimentFailure('Watchdog refuses a replacement fixture process')
-        result.update(attempted=True, response=adb.thaw())
-        result['resumed'] = observe_thaw(adb, before, current['counter'])
-        # Always perform safe cleanup, but never credit an already-thawed app
-        # to watchdog recovery. The handoff must still be kernel/AMS frozen.
-        require_kernel(initial, True)
-        if not initial_ams:
-            raise ExperimentFailure('Watchdog found fixture already absent from AMS frozen set')
-        result['verified_thaw'] = True
+        # Deserialize exactly once before acknowledging readiness. The random
+        # token and identity are never reloaded from coordinator-writable files.
+        context = validate_watchdog_context(context, adb.serial)
+        os.write(ready_fd, b'R')
+        os.close(ready_fd)
+        ready_fd = None
+        result['ready_at'] = timestamp()
+        trigger = wait_for_owner(death_fd, marker, context)
+        result.update(trigger=trigger, triggered_at=timestamp())
+        if trigger == 'verified_completion':
+            result['cancelled_after_verified_thaw'] = True
+            return
+        deadline = time.monotonic() + WATCHDOG_IO_SECONDS
+        adb.deadline = deadline
+        with lease.open('r+') as stream:
+            acquire_lease(stream, deadline)
+            # Fence is set under the same lock used by all freeze submissions.
+            fence.write_text('watchdog owns terminal cleanup\n')
+            try:
+                completed = completion_matches(marker, context)
+            except (ExperimentFailure, ValueError, OSError) as error:
+                result['marker_error'] = str(error)
+                completed = False
+            if completed:
+                result['cancelled_after_verified_thaw'] = True
+                return
+            adb.validate_vm()
+            if adb.boot_id() != context['boot_id']:
+                raise ExperimentFailure('Watchdog refuses a replacement VM boot')
+            before = context['heartbeat']
+            # Baseline precedes every handoff observation; never erase a
+            # competing transition by sampling logs after kernel/AMS checks.
+            logs_before = adb.logs(before['pid'])
+            result['logs_before'] = logs_before
+            initial = adb.passive(before)
+            initial_ams = adb.ams(before['pid'])
+            result['before_cleanup'] = {'probe': initial, 'ams_frozen': initial_ams}
+            current = adb.heartbeat()
+            if not same_instance(before, current):
+                raise ExperimentFailure('Watchdog refuses a replacement fixture process')
+            started = adb.guest_time()
+            result.update(attempted=True, command_started_at=timestamp())
+            save_json(result_path.with_suffix('.attempt.json'), result)
+            # Attempt is durable even if this command throws or times out.
+            result['response'] = adb.thaw()
+            finished = adb.guest_time()
+            result['resumed'] = observe_thaw(adb, before, current['counter'])
+            logs_after = adb.logs(before['pid'])
+            result.update(logs_before=logs_before, logs_after=logs_after)
+            require_kernel(initial, True)
+            if not initial_ams:
+                raise ExperimentFailure('Watchdog found fixture already absent from AMS frozen set')
+            result['transition_review'] = review_watchdog_transition(
+                logs_before, logs_after, before['pid'], started, finished)
+            if result.get('marker_error'):
+                raise ExperimentFailure('Invalid completion marker; cleanup performed without pass credit')
+            result['verified_thaw'] = True
     except Exception as error:
         result['error'] = str(error)
     finally:
+        if ready_fd is not None:
+            os.close(ready_fd)
+        os.close(death_fd)
         result['finished_at'] = timestamp()
         save_json(result_path, result)
+
+
+def start_watchdog(args, output, context):
+    death_read, death_write = os.pipe()
+    ready_read, ready_write = os.pipe()
+    child = None
+    lease, fence = output / 'freeze-cleanup.lock', output / 'cleanup-fence'
+    lease.touch(exist_ok=False)
+    try:
+        child = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), '--watchdog',
+            '--serial', args.serial, '--adb', args.adb, '--marker', str(output / 'verified-thaw.marker'),
+            '--watchdog-result', str(output / 'watchdog-result.json'),
+            '--watchdog-context-json', json.dumps(context),
+            '--death-fd', str(death_read), '--ready-fd', str(ready_write),
+            '--lease', str(lease), '--fence', str(fence)],
+            pass_fds=(death_read, ready_write), close_fds=True,
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True)
+        os.close(death_read); death_read = None
+        os.close(ready_write); ready_write = None
+        ready, _, _ = select.select([ready_read], [], [], 3)
+        if not ready or os.read(ready_read, 1) != b'R' or child.poll() is not None:
+            raise ExperimentFailure('Independent watchdog failed readiness handshake; no freeze')
+        return child, death_write, lease, fence
+    except BaseException:
+        os.close(death_write)
+        # EOF wakes any successfully started watchdog; no freeze has occurred.
+        if child is not None:
+            child.wait(timeout=WATCHDOG_IO_SECONDS + 4)
+        raise
+    finally:
+        os.close(ready_read)
+        for fd in (death_read, ready_write):
+            if fd is not None:
+                os.close(fd)
 
 
 def run_experiment(args):
@@ -367,6 +551,7 @@ def run_experiment(args):
               'started_at': timestamp(), 'passed': False, 'result': 'INCOMPLETE'}
     adb = Adb(args.adb, args.serial, evidence=output / 'adb-commands.jsonl')
     watchdog = None
+    death_write = None
     cleanup_needed = False
     try:
         adb.validate_vm()
@@ -418,16 +603,17 @@ def run_experiment(args):
         if EXIT_HEADER not in report['exit_info_before'] or 'Historical Process Exit' in report['exit_info_before']:
             raise ExperimentFailure('Initial fixture exit history is not clean and observable')
         marker = output / 'verified-thaw.marker'
-        context = output / 'watchdog-context.json'
-        save_json(context, {'boot_id': report['boot_id'], 'heartbeat': before})
+        context = {'schema': 2, 'package': PACKAGE, 'serial': args.serial,
+                   'boot_id': report['boot_id'], 'heartbeat': before,
+                   'token': secrets.token_hex(24),
+                   'trigger_deadline': time.monotonic() + WATCHDOG_TRIGGER_SECONDS}
+        save_json(output / 'watchdog-context.json', context)
         save_json(output / 'result.json', report)
-        watchdog = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), '--watchdog',
-            '--serial', args.serial, '--adb', args.adb, '--marker', str(marker),
-            '--watchdog-result', str(output / 'watchdog-result.json'), '--watchdog-identity', str(context)],
-            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        watchdog, death_write, lease, fence = start_watchdog(args, output, context)
         report['watchdog_pid'] = watchdog.pid
+        report['watchdog_ready'] = True
         cleanup_needed = True
-        report['freeze_acceptance'] = adb.freeze()
+        report['freeze_acceptance'] = submit_freeze(adb, lease, fence, context['trigger_deadline'])
         frozen = wait_until(lambda: adb.passive(before), lambda p: p.get('freezer_observation', {}).get('complete') is True)
         require_kernel(frozen, True)
         if not adb.ams(before['pid']):
@@ -448,14 +634,27 @@ def run_experiment(args):
         save_json(output / 'result.json', report)
         if args.fault_coordinator_exit:
             os._exit(73)  # Intentionally bypass finally; independent watchdog owns recovery.
-        report['thaw_acceptance'] = adb.thaw()
-        report['resumed'] = observe_thaw(adb, before, frozen_end['counter'])
-        collect_diagnostics(adb, report)
-        marker.write_text('verified same-instance thaw\n')
+        with lease.open('r+') as stream:
+            acquire_lease(stream, context['trigger_deadline'])
+            if fence.exists():
+                raise ExperimentFailure('Watchdog already owns cleanup')
+            adb.deadline = time.monotonic() + WATCHDOG_IO_SECONDS
+            try:
+                report['thaw_acceptance'] = adb.thaw()
+                report['resumed'] = observe_thaw(adb, before, frozen_end['counter'])
+                collect_diagnostics(adb, report)
+                record_completion(marker, context)
+            finally:
+                adb.deadline = None
+        os.close(death_write)
+        death_write = None
         watchdog.wait(timeout=3)
         report['watchdog_exit'] = watchdog.returncode
-        if watchdog.returncode != 0:
-            raise ExperimentFailure('Cleanup watchdog did not exit normally')
+        watchdog_result = json.loads((output / 'watchdog-result.json').read_text())
+        if (watchdog.returncode != 0
+                or watchdog_result.get('cancelled_after_verified_thaw') is not True
+                or watchdog_result.get('attempted') is not False):
+            raise ExperimentFailure('Cleanup watchdog completion was not cleanly acknowledged')
         cleanup_needed = False
         report.update(passed=True, result='BOUNDED_FIXTURE_EVIDENCE_PASS')
         return report
@@ -464,23 +663,25 @@ def run_experiment(args):
         raise
     finally:
         if cleanup_needed:
-            try:
-                # Bound to this boot/process and literal package; no arbitrary PID write.
-                if adb.boot_id() != report['boot_id']:
-                    raise ExperimentFailure('Refusing cleanup on a different VM boot')
-                identity = report['before']['heartbeat']
-                adb.passive(identity)
-                report['cleanup_acceptance'] = adb.thaw()
-                report['cleanup_resumed'] = observe_thaw(adb, identity, adb.heartbeat()['counter'])
-                marker.write_text('verified same-instance cleanup thaw\n')
-            except Exception as error:
-                report['cleanup_error'] = str(error)
+            # The independent process is the sole error-cleanup writer. Closing
+            # this CLOEXEC pipe cannot leave coordinator/ADB writers alive.
+            if death_write is not None:
+                os.close(death_write)
+                death_write = None
             if watchdog:
                 try:
-                    watchdog.wait(timeout=65)
+                    watchdog.wait(timeout=WATCHDOG_IO_SECONDS + 5)
                     report['watchdog_exit'] = watchdog.returncode
-                except subprocess.TimeoutExpired:
-                    report['cleanup_error'] = 'Watchdog did not exit within its cleanup budget'
+                    cleanup = json.loads((output / 'watchdog-result.json').read_text())
+                    if cleanup.get('resumed'):
+                        report['cleanup_resumed'] = cleanup['resumed']
+                    if cleanup.get('error'):
+                        report['cleanup_error'] = cleanup['error']
+                except Exception as error:
+                    report['cleanup_error'] = str(error)
+        if death_write is not None:
+            os.close(death_write)
+            death_write = None
         if report.get('before'):
             try:
                 report['fixture_logcat_terminal'] = adb.logs(report['before']['heartbeat']['pid'])
@@ -507,12 +708,17 @@ def main():
     parser.add_argument('--watchdog', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--marker', help=argparse.SUPPRESS)
     parser.add_argument('--watchdog-result', help=argparse.SUPPRESS)
-    parser.add_argument('--watchdog-identity', help=argparse.SUPPRESS)
+    parser.add_argument('--watchdog-context-json', help=argparse.SUPPRESS)
+    parser.add_argument('--death-fd', type=int, help=argparse.SUPPRESS)
+    parser.add_argument('--ready-fd', type=int, help=argparse.SUPPRESS)
+    parser.add_argument('--lease', help=argparse.SUPPRESS)
+    parser.add_argument('--fence', help=argparse.SUPPRESS)
     args = parser.parse_args()
     try:
         if args.watchdog:
             cleanup_watchdog(Adb(args.adb, args.serial, evidence=Path(args.watchdog_result).with_suffix('.jsonl')),
-                             Path(args.marker), Path(args.watchdog_result), Path(args.watchdog_identity))
+                             Path(args.marker), Path(args.watchdog_result), json.loads(args.watchdog_context_json),
+                             args.death_fd, args.ready_fd, Path(args.lease), Path(args.fence))
         else:
             if not args.probe or not args.output or (args.mode == 'freeze-test' and not args.apk):
                 parser.error('--probe, --output, and --apk for freeze-test are required')
