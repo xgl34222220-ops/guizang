@@ -180,3 +180,33 @@ class VmScopeTests(unittest.TestCase):
         runner.enable_debug_root(adb)
         self.assertEqual([call.args for call in adb.command.call_args_list], [('root',), ('wait-for-device',)])
         adb.validate_vm.assert_called_once()
+
+    def test_heartbeat_reads_fixed_fixture_file_without_run_as(self):
+        value = dict(nonce='x', pid=42, uid=10123, starttime='500', counter=1)
+        adb = vm.Adb('adb', 'emulator-5554')
+        adb.shell = Mock(return_value=json.dumps(value))
+        self.assertEqual(adb.heartbeat(), value)
+        adb.shell.assert_called_once_with('cat', '/data/user/0/org.guizang.fixture/files/heartbeat.json')
+
+    def test_background_requires_onstop_and_two_ticks_same_lifecycle(self):
+        base = dict(nonce='x', pid=42, uid=10123, starttime='500', counter=1,
+                    lifecycle=[dict(name='onPause', sequence=1)], lifecycle_sequence=1, prior_write_errors=0)
+        stopped = dict(base, lifecycle=[dict(name='onStop', sequence=2)], lifecycle_sequence=2)
+        adb = Mock()
+        adb.heartbeat.side_effect = [base, stopped, dict(stopped, counter=2), dict(stopped, counter=3)]
+        with patch.object(vm.time, 'sleep'):
+            result = vm.await_background(adb, base)
+        self.assertEqual(result['counter'], 3)
+        self.assertEqual(adb.heartbeat.call_count, 4)
+        for invalid in ({}, dict(stopped, prior_write_errors=1), dict(stopped, lifecycle_sequence=3), base):
+            self.assertFalse(vm.background_ready(invalid))
+
+    def test_background_restart_or_unstopped_timeout_rejected(self):
+        base = dict(nonce='x', pid=42, uid=10123, starttime='500', counter=1)
+        adb = Mock(); adb.heartbeat.return_value = dict(base, nonce='restart')
+        with self.assertRaisesRegex(vm.ExperimentFailure, 'changed process'):
+            vm.await_background(adb, base)
+        adb.heartbeat.return_value = base
+        with patch.object(vm.time, 'monotonic', side_effect=[0, 0, 9]), patch.object(vm.time, 'sleep'):
+            with self.assertRaisesRegex(vm.ExperimentFailure, 'stable stopped lifecycle'):
+                vm.await_background(adb, base)

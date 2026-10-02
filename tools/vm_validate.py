@@ -126,9 +126,10 @@ class Adb:
             raise ExperimentFailure('Only the clean VM primary user is supported')
 
     def heartbeat(self):
-        # Separate run-as reads a file; it does not contact the frozen app via Binder.
+        # Already-verified debug Root reads only our fixed fixture file. Do not
+        # launch run-as into the fixture UID/cgroup during frozen observation.
         try:
-            return require_heartbeat(json.loads(self.shell('run-as', PACKAGE, 'cat', 'files/heartbeat.json')))
+            return require_heartbeat(json.loads(self.shell('cat', '/data/user/0/' + PACKAGE + '/files/heartbeat.json')))
         except (ValueError, TypeError) as error:
             raise ExperimentFailure('Fixture heartbeat unavailable') from error
 
@@ -191,6 +192,38 @@ def wait_until(action, condition, timeout=5, retry_unavailable=False):
         if time.monotonic() >= deadline:
             raise ExperimentFailure('Timed out waiting for corroborated freezer state')
         time.sleep(0.25)
+
+
+
+def background_ready(heartbeat):
+    lifecycle = heartbeat.get('lifecycle')
+    if not isinstance(lifecycle, list) or not lifecycle or not isinstance(lifecycle[-1], dict):
+        return False
+    last = lifecycle[-1]
+    return (last.get('name') == 'onStop'
+            and type(last.get('sequence')) is int
+            and last['sequence'] == heartbeat.get('lifecycle_sequence')
+            and heartbeat.get('prior_write_errors') == 0)
+
+
+def await_background(adb, first):
+    previous = None
+    deadline = time.monotonic() + 8
+    while time.monotonic() < deadline:
+        current = adb.heartbeat()
+        if not same_instance(first, current):
+            raise ExperimentFailure('Background heartbeat changed process')
+        if background_ready(current):
+            if (previous is not None
+                    and current['lifecycle_sequence'] == previous['lifecycle_sequence']
+                    and current['counter'] >= previous['counter'] + 2):
+                return current
+            if previous is None or current['lifecycle_sequence'] != previous['lifecycle_sequence']:
+                previous = current
+        else:
+            previous = None
+        time.sleep(0.25)
+    raise ExperimentFailure('Fixture did not reach stable stopped lifecycle with advancing heartbeat')
 
 
 def require_kernel(report, frozen):
@@ -363,7 +396,7 @@ def run_experiment(args):
         adb.shell('am', 'start', '-W', '-n', PACKAGE + '/.MainActivity', timeout=30)
         first = wait_until(adb.heartbeat, lambda h: h['counter'] >= 1, retry_unavailable=True)
         adb.shell('input', 'keyevent', 'KEYCODE_HOME')
-        before = wait_until(adb.heartbeat, lambda h: h['counter'] > first['counter'])
+        before = await_background(adb, first)
         if not same_instance(first, before):
             raise ExperimentFailure('Background heartbeat changed process')
         if adb.shell('pidof', PACKAGE).split() != [str(before['pid'])]:
@@ -395,6 +428,8 @@ def run_experiment(args):
         frozen_start = adb.heartbeat()
         time.sleep(1.2)
         frozen_end = adb.heartbeat()
+        report['frozen_observation'] = {'probe': frozen, 'heartbeat_start': frozen_start,
+                                        'heartbeat_end': frozen_end}
         if (not same_instance(before, frozen_start) or not same_instance(before, frozen_end)
                 or frozen_start['counter'] != frozen_end['counter']):
             raise ExperimentFailure('Frozen fixture heartbeat did not plateau on the same process')
@@ -439,6 +474,12 @@ def run_experiment(args):
                     report['watchdog_exit'] = watchdog.returncode
                 except subprocess.TimeoutExpired:
                     report['cleanup_error'] = 'Watchdog did not exit within its cleanup budget'
+        if report.get('before'):
+            try:
+                report['fixture_logcat_terminal'] = adb.logs(report['before']['heartbeat']['pid'])
+                report['exit_info_terminal'] = adb.shell('dumpsys', 'activity', 'exit-info', PACKAGE)
+            except Exception as error:
+                report['terminal_diagnostic_error'] = str(error)
         report['finished_at'] = timestamp()
         save_json(output / 'result.json', report)
 

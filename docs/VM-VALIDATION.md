@@ -66,3 +66,5 @@ cgroup.freeze只是请求值，cgroup.events frozen才是完成状态。freezer�
 对应新增host回归覆盖调试Root closed重连与拒绝、安装回执/哈希、正向日志、退出记录、清理所有权和KVM不变；host通过不等于真实实验通过。
 
 AVD身份闸门同时核对只读 `ro.boot.qemu.avd_name`，必须精确等于本次创建的名称。`adb emu avd name` 成功但stdout为空时，保留原始命令证据并使用该boot属性；不再对空行列表取首项。非空console响应必须为相同名称（可带末行 `OK`），任何冲突、拒绝、超时或缺失boot属性均在Root/安装前停止。此修正不改变镜像/架构/调试身份、独占端口和全新AVD的其他闸门。
+
+2026-10-02 VM迭代：API35只读探测已实测完成；首次夹具冻结时onStop尚未完成，kernel/AMS短暂冻结后heartbeat继续，严格判失败，清理同实例解冻和AVD销毁均完成，不能记作冻结通过。后续runner在onStop后要求同生命周期至少两次heartbeat递增，才允许开始冻结；冻结观察只用已验证debug Root读取唯一夹具固定私有文件，不运行run-as进入夹具UID/cgroup。失败也保存冻结窗前后heartbeat、限定logcat与退出记录，原有1.2秒平台期、kernel与AMS双证据要求不变。
