@@ -9,3 +9,14 @@
 - [yc9559/uperf](https://github.com/yc9559/uperf)：研究场景识别、增量调参和退出场景后回落；仓库显示 Apache-2.0。没有导入脚本、预设、hook 或二进制，也不照搬关闭系统 boost/温控的策略。注意不要与同名网络基准项目 uperf/uperf 混淆。
 
 项目当前仅自写原型，尚未选择发行许可证；复用第三方代码前须逐文件核对来源/许可证并保留通知，不能把公开 README 当成闭源二进制的复用授权。
+
+## 两台目标设备
+
+- [一加15官方产品页](https://www.oneplus.com/cn/15) 确认第五代骁龙8至尊版和 ColorOS16 产品信息。
+- [小米集团2025中期报告](https://ir.mi.com/static-files/f032d2b5-8fa8-4cb7-b00e-a22ec00b954d) 确认 Redmi K80 至尊版采用天玑9400+。这是硬件产品信息，不是设备当前 ROM/内核版本。
+- Qualcomm 与 MediaTek 的 CPU/GPU、功耗管理和厂商服务不同；不共享 sysfs 写入预设。每台手机必须单独采集当前内核、cgroup、Binder 能力、系统保护信号与原值，不能从型号推导运行时权限或兼容性。
+- [Linux cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html)：`cgroup.freeze` 是核心接口，不应因 `cgroup.controllers` 未列出 freezer 就判定不支持；读取节点存在也不能证明 Binder/框架协作可用。
+
+## 未纳入内容
+
+不导入第三方闭源二进制，不注入 SurfaceFlinger，不杀厂商温控/调度服务，不用随机网上调参集合。Android 11+ 的 AOSP 功能存在不等于任意 OEM ROM 可安全外部控制；目前没有宣布任何系统/Root管理器完成兼容。
