@@ -83,7 +83,7 @@ class VmScopeTests(unittest.TestCase):
         self.assertEqual(sum(call.args==('root',) for call in adb.command.call_args_list),1)
 
     def test_root_denial_never_retries_or_waits(self):
-        for message in ('error: unauthorized','permission denied','error: closed\nunauthorized'):
+        for message in ('error: unauthorized','permission denied','error: closed\nunauthorized','adb: unable to connect for root: closed\npermission denied'):
             adb=Mock()
             adb.command.side_effect=vm.AdbFailure(['root'],'',message)
             with self.assertRaises(vm.ExperimentFailure):
@@ -173,3 +173,10 @@ class VmScopeTests(unittest.TestCase):
             adb.shell.assert_not_called()
             self.assertEqual(adb.command.call_args_list[0].args, ('emu', 'avd', 'name'))
             self.assertEqual(adb.command.call_count, 1)
+
+    def test_root_transport_closed_reconnects_without_second_root(self):
+        adb = Mock()
+        adb.command.side_effect = [vm.AdbFailure(['root'], '', 'adb: unable to connect for root: closed'), '']
+        runner.enable_debug_root(adb)
+        self.assertEqual([call.args for call in adb.command.call_args_list], [('root',), ('wait-for-device',)])
+        adb.validate_vm.assert_called_once()

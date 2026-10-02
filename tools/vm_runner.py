@@ -46,7 +46,7 @@ def enable_debug_root(adb):
     try:
         response = adb.command('root', timeout=30)
     except vm.AdbFailure as error:
-        if not re.fullmatch(r'(?:adb: )?error: closed', error.detail, re.I):
+        if not re.fullmatch(r'(?:(?:adb: )?error: closed|adb: unable to connect for root: closed)', error.detail, re.I):
             raise
         response = 'adbd closed the root request; verified after reconnect'
     adb.command('wait-for-device', timeout=45)
