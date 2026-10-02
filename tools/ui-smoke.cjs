@@ -36,8 +36,8 @@ const server=http.createServer((req,res)=>{ const asset=assets[req.url]; if(!ass
           assert.ok(dock.y+dock.height<viewport.height,'floating dock keeps bottom gutter');
           assert.equal(await page.locator('nav').evaluate(el=>getComputedStyle(el).backdropFilter.includes('blur')),true,'dock uses translucent blur');
           if(viewport.height>=800){
-            const capabilities=await page.locator('.capability-list').boundingBox();
-            assert.ok(capabilities.y+capabilities.height<=dock.y,`capability values clear dock: ${JSON.stringify({capabilities,dock})}`);
+            const capabilities=await page.locator('.control-group').boundingBox();
+            assert.ok(capabilities.y+capabilities.height<=dock.y,`control panel clears dock: ${JSON.stringify({capabilities,dock})}`);
           }
           for(const target of await page.locator('nav a').all()){
             const box=await target.boundingBox();
