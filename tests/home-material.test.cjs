@@ -16,9 +16,9 @@ test('material refinements stay scoped to the homepage', () => {
 
 test('floating dock has translucent material, blur fallback and safe-area clearance', () => {
   assert.match(material, /-webkit-backdrop-filter: blur\(28px\) saturate\(155%\)/);
-  assert.match(material, /bottom: calc\(14px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(material, /bottom:calc\(14px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(material, /main \{ padding: 26px 0 120px; \}/);
-  assert.match(material, /background: linear-gradient\(130deg, #ffffffe0/);
+  assert.match(material, /background:linear-gradient\(130deg,#36465bec/);
 });
 
 test('discarded overlapping study cannot rotate the power icon or stack device facts', () => {
