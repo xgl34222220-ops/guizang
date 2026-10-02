@@ -8,7 +8,7 @@
 body[data-view="overview"]{background:#f2f6f9;color:#0b111b;-webkit-font-smoothing:antialiased}
 body[data-view="overview"] .workspace{position:relative;isolation:isolate}
 body[data-view="overview"] .workspace::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 90% 36%,#e5eef52e,transparent 52%),linear-gradient(120deg,#f8fafc90,#eef4f940)}
-body[data-view="overview"] .console-top{display:flex;align-items:center;justify-content:space-between;margin:0 0 45px}
+body[data-view="overview"] .console-top{display:flex;align-items:center;justify-content:space-between;margin:0 0 40px}
 body[data-view="overview"] .home-wordmark{display:flex;align-items:center;gap:12px}
 body[data-view="overview"] .home-wordmark>svg{width:38px;height:38px;stroke:#0b111b;stroke-width:.8;flex:none}
 body[data-view="overview"] .console-top h1{margin:0;font-size:38px;font-weight:730;letter-spacing:-1.4px;line-height:1.2;color:#090f18}
@@ -21,7 +21,7 @@ body[data-view="overview"] .device-panel h2{font-size:37px;line-height:1.25;font
 body[data-view="overview"] .device-panel p{color:#778397;font-size:13px;line-height:1.5;margin:0;white-space:nowrap}
 body[data-view="overview"] .connection-dial{display:block;width:122px;height:122px;flex:none;margin-right:-5px}
 body[data-view="overview"] .connection-dial svg{display:block;width:100%;height:100%}
-body[data-view="overview"] .device-facts{display:flex;gap:0;margin-top:25px;padding:13px 0;border-top:1px solid #dbe4ed;border-bottom:1px solid #dbe4ed;color:#718097;font-size:12px}
+body[data-view="overview"] .device-facts{display:flex;gap:0;margin-top:15px;padding:13px 0;border-top:1px solid #dbe4ed;border-bottom:1px solid #dbe4ed;color:#718097;font-size:12px}
 body[data-view="overview"] .device-facts span{display:flex;flex:1;min-width:0;flex-direction:column;align-items:center;gap:5px;border-right:1px solid #d7e0e9;line-height:1.4}
 body[data-view="overview"] .device-facts span:last-child{border:0}
 body[data-view="overview"] .device-facts strong{display:block;max-width:100%;font-size:15px;color:#253244;line-height:1.2;font-weight:500;margin:0}

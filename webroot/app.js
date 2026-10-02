@@ -38,7 +38,7 @@
   };
   function overview() {
     const connected = !!diagnostics;
-    const dial = `<svg viewBox="0 0 128 128" aria-hidden="true">${Array.from({length:48},(_,i)=>`<line x1="64" y1="${i%12===0?4:6}" x2="64" y2="${i%12===0?13:11}" transform="rotate(${i*7.5} 64 64)" stroke="${i===0?'#0767fa':'#7e8a9c'}" stroke-width="${i===0?1.5:.65}"/>`).join('')}<g transform="translate(48 48) scale(1.33)" fill="none" stroke="#647084" stroke-width="1.8" stroke-linecap="round"><path d="M8 8l-2 2a4.3 4.3 0 0 0 6 6l2-2M16 16l2-2a4.3 4.3 0 0 0-6-6l-2 2M9 15l6-6"/></g></svg>`;
+    const dial = `<svg viewBox="0 0 128 128" aria-hidden="true">${Array.from({length:48},(_,i)=>`<line x1="64" y1="${i%12===0?4:6}" x2="64" y2="${i%12===0?13:11}" transform="rotate(${i*7.5} 64 64)" stroke="${i===0?'#0767fa':'#7e8a9c'}" stroke-width="${i===0?1.5:.65}"/>`).join('')}<g transform="translate(42.4 42.4) scale(1.8)" fill="none" stroke="#647084" stroke-width="1.8" stroke-linecap="round"><path d="M8 8l-2 2a4.3 4.3 0 0 0 6 6l2-2M16 16l2-2a4.3 4.3 0 0 0-6-6l-2 2M9 15l6-6"/></g></svg>`;
     const seal = '<svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><circle cx="20" cy="20" r="18"/><circle cx="20" cy="20" r="14.5"/><circle cx="20" cy="20" r="10.5"/><circle cx="20" cy="20" r="3"/><circle cx="20" cy="20" r="1.6" fill="#0767fa" stroke="none"/></svg>';
     const shield = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.7l8 3.5v5.6c0 4.4-3.4 7.8-8 10-4.6-2.2-8-5.6-8-10V6.2z"/><path d="M12 10v4.5"/></svg>';
     return `<div class="console-top"><div class="home-wordmark">${seal}<h1>归藏</h1></div><span class="offline-badge"><span></span>${connected ? '只读连接' : '离线预览'}</span></div>
