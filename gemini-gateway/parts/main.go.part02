@@ -1,0 +1,275 @@
+	if err != nil {
+		return err
+	}
+	tmp := s.path + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, s.path)
+}
+
+func (s *stateStore) listKeys() []apiKeyRecord {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]apiKeyRecord, 0, len(s.data.Keys))
+	for i := len(s.data.Keys) - 1; i >= 0; i-- {
+		out = append(out, s.data.Keys[i].apiKeyRecord)
+	}
+	return out
+}
+
+func (s *stateStore) createKey(name, hash, prefix string, rpm int, daily, monthly int64) (apiKeyRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	rec := apiKeyRecord{
+		ID:                s.data.NextID,
+		Name:              name,
+		Prefix:            prefix,
+		Enabled:           true,
+		RPM:               rpm,
+		DailyTokenLimit:   daily,
+		MonthlyTokenLimit: monthly,
+		CreatedAt:         time.Now().UTC().Format(time.RFC3339),
+	}
+	s.data.NextID++
+	s.data.Keys = append(s.data.Keys, storedKey{apiKeyRecord: rec, KeyHash: hash})
+	return rec, s.saveLocked()
+}
+
+func (s *stateStore) updateKey(id int64, enabled *bool, rpm *int, daily, monthly *int64) (apiKeyRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.data.Keys {
+		k := &s.data.Keys[i]
+		if k.ID != id {
+			continue
+		}
+		if enabled != nil {
+			k.Enabled = *enabled
+		}
+		if rpm != nil {
+			k.RPM = *rpm
+		}
+		if daily != nil {
+			k.DailyTokenLimit = *daily
+		}
+		if monthly != nil {
+			k.MonthlyTokenLimit = *monthly
+		}
+		if err := s.saveLocked(); err != nil {
+			return apiKeyRecord{}, err
+		}
+		return k.apiKeyRecord, nil
+	}
+	return apiKeyRecord{}, os.ErrNotExist
+}
+
+func (s *stateStore) deleteKey(id int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.data.Keys {
+		if s.data.Keys[i].ID != id {
+			continue
+		}
+		s.data.Keys = append(s.data.Keys[:i], s.data.Keys[i+1:]...)
+		return s.saveLocked()
+	}
+	return os.ErrNotExist
+}
+
+func (s *stateStore) authenticate(hash string) (apiKeyRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, k := range s.data.Keys {
+		if subtleEqual(k.KeyHash, hash) {
+			if !k.Enabled {
+				return apiKeyRecord{}, errors.New("disabled")
+			}
+			return k.apiKeyRecord, nil
+		}
+	}
+	return apiKeyRecord{}, os.ErrNotExist
+}
+
+func (s *stateStore) withinBudgets(rec apiKeyRecord) (bool, string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	today, month := dayMonthUTC(time.Now())
+	for _, k := range s.data.Keys {
+		if k.ID != rec.ID {
+			continue
+		}
+		dayUsed := int64(0)
+		if k.Day == today {
+			dayUsed = k.DayTokens
+		}
+		monthUsed := int64(0)
+		if k.Month == month {
+			monthUsed = k.MonthTokens
+		}
+		if rec.DailyTokenLimit > 0 && dayUsed >= rec.DailyTokenLimit {
+			return false, "daily token limit reached"
+		}
+		if rec.MonthlyTokenLimit > 0 && monthUsed >= rec.MonthlyTokenLimit {
+			return false, "monthly token limit reached"
+		}
+		return true, ""
+	}
+	return false, "API key not found"
+}
+
+func (s *stateStore) recordUsage(id int64, status int, tokens int64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now().UTC()
+	today, month := dayMonthUTC(now)
+	for i := range s.data.Keys {
+		k := &s.data.Keys[i]
+		if k.ID != id {
+			continue
+		}
+		if k.Day != today {
+			k.Day, k.DayTokens, k.DayRequests, k.DayErrors = today, 0, 0, 0
+		}
+		if k.Month != month {
+			k.Month, k.MonthTokens, k.MonthRequests = month, 0, 0
+		}
+		k.DayTokens += tokens
+		k.MonthTokens += tokens
+		k.TotalTokens += tokens
+		k.DayRequests++
+		k.MonthRequests++
+		k.TotalRequests++
+		if status >= 400 {
+			k.DayErrors++
+		}
+		if err := s.saveLocked(); err != nil {
+			log.Printf("persist usage: %v", err)
+		}
+		return
+	}
+}
+
+func (s *stateStore) stats() map[string]any {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	today, month := dayMonthUTC(time.Now())
+	var active, dayReq, dayTokens, monthReq, monthTokens, dayErrors int64
+	for _, k := range s.data.Keys {
+		if k.Enabled {
+			active++
+		}
+		if k.Day == today {
+			dayReq += k.DayRequests
+			dayTokens += k.DayTokens
+			dayErrors += k.DayErrors
+		}
+		if k.Month == month {
+			monthReq += k.MonthRequests
+			monthTokens += k.MonthTokens
+		}
+	}
+	return map[string]any{
+		"keys":           len(s.data.Keys),
+		"active_keys":    active,
+		"today_requests": dayReq,
+		"today_tokens":   dayTokens,
+		"month_requests": monthReq,
+		"month_tokens":   monthTokens,
+		"today_errors":   dayErrors,
+	}
+}
+
+func dayMonthUTC(t time.Time) (string, string) {
+	u := t.UTC()
+	return u.Format("2006-01-02"), u.Format("2006-01")
+}
+
+func (a *app) handleRoot(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"name":    "Guizang Gemini Gateway",
+		"status":  "ok",
+		"openai":  "/v1",
+		"gemini":  "/gemini",
+		"admin":   "/admin",
+		"privacy": "prompt/response bodies are not stored by the gateway",
+	})
+}
+
+func (a *app) handleHealth(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "upstream_keys": len(a.cfg.GeminiKeys)})
+}
+
+func (a *app) handleAdminPage(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/admin" && r.URL.Path != "/admin/" {
+		http.NotFound(w, r)
+		return
+	}
+	b, err := webFS.ReadFile("web/admin.html")
+	if err != nil {
+		http.Error(w, "admin UI unavailable", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(b)
+}
+
+func (a *app) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		provided := strings.TrimSpace(r.Header.Get("X-Admin-Token"))
+		if provided == "" {
+			provided = bearerToken(r.Header.Get("Authorization"))
+		}
+		if !subtleEqual(provided, a.cfg.AdminToken) {
+			writeError(w, http.StatusUnauthorized, "invalid admin token")
+			return
+		}
+		next(w, r)
+	}
+}
+
+func (a *app) handleAdminStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w, http.MethodGet)
+		return
+	}
+	s := a.store.stats()
+	s["upstreams"] = len(a.cfg.GeminiKeys)
+	writeJSON(w, http.StatusOK, s)
+}
+
+func (a *app) handleAdminKeys(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		writeJSON(w, http.StatusOK, a.store.listKeys())
+	case http.MethodPost:
+		var in struct {
+			Name              string `json:"name"`
+			RPM               int    `json:"rpm"`
+			DailyTokenLimit   int64  `json:"daily_token_limit"`
+			MonthlyTokenLimit int64  `json:"monthly_token_limit"`
+		}
+		if err := decodeJSON(r, &in, 1<<20); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		in.Name = strings.TrimSpace(in.Name)
+		if in.Name == "" || len(in.Name) > 80 {
+			writeError(w, http.StatusBadRequest, "name is required and must be <= 80 characters")
+			return
+		}
+		if in.RPM <= 0 {
+			in.RPM = 60
+		}
+		if in.RPM > 10000 || in.DailyTokenLimit < 0 || in.MonthlyTokenLimit < 0 {
+			writeError(w, http.StatusBadRequest, "invalid limits")
+			return
+		}
+		plain, err := newClientKey()
+		if err != nil {
+		

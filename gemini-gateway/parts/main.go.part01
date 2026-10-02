@@ -1,0 +1,281 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"embed"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+)
+
+const (
+	openAIBase      = "https://generativelanguage.googleapis.com/v1beta/openai"
+	nativeBase      = "https://generativelanguage.googleapis.com"
+	defaultMaxBody  = int64(32 << 20)
+	usageTailBytes  = 256 << 10
+	serverUserAgent = "Guizang-Gemini-Gateway/0.1"
+)
+
+//go:embed web/admin.html
+var webFS embed.FS
+
+type config struct {
+	Port           string
+	StatePath      string
+	AdminToken     string
+	GeminiKeys     []string
+	ModelAliases   map[string]string
+	MaxBodyBytes   int64
+	RequestTimeout time.Duration
+}
+
+type app struct {
+	cfg       config
+	store     *stateStore
+	client    *http.Client
+	upstreamN atomic.Uint64
+	limiters  sync.Map // map[int64]*tokenBucket
+}
+
+type apiKeyRecord struct {
+	ID                int64  `json:"id"`
+	Name              string `json:"name"`
+	Prefix            string `json:"prefix"`
+	Enabled           bool   `json:"enabled"`
+	RPM               int    `json:"rpm"`
+	DailyTokenLimit   int64  `json:"daily_token_limit"`
+	MonthlyTokenLimit int64  `json:"monthly_token_limit"`
+	CreatedAt         string `json:"created_at"`
+}
+
+type storedKey struct {
+	apiKeyRecord
+	KeyHash       string `json:"key_hash"`
+	Day           string `json:"day,omitempty"`
+	DayTokens     int64  `json:"day_tokens,omitempty"`
+	DayRequests   int64  `json:"day_requests,omitempty"`
+	DayErrors     int64  `json:"day_errors,omitempty"`
+	Month         string `json:"month,omitempty"`
+	MonthTokens   int64  `json:"month_tokens,omitempty"`
+	MonthRequests int64  `json:"month_requests,omitempty"`
+	TotalTokens   int64  `json:"total_tokens,omitempty"`
+	TotalRequests int64  `json:"total_requests,omitempty"`
+}
+
+type stateData struct {
+	Version int         `json:"version"`
+	NextID  int64       `json:"next_id"`
+	Keys    []storedKey `json:"keys"`
+}
+
+type stateStore struct {
+	mu   sync.Mutex
+	path string
+	data stateData
+}
+
+type authContext struct {
+	Record apiKeyRecord
+}
+
+type usageInfo struct {
+	Input  int64
+	Output int64
+	Total  int64
+}
+
+type tokenBucket struct {
+	mu     sync.Mutex
+	rpm    int
+	tokens float64
+	last   time.Time
+}
+
+type ringTail struct {
+	buf []byte
+	cap int
+}
+
+func (r *ringTail) Write(p []byte) (int, error) {
+	if r.cap <= 0 {
+		return len(p), nil
+	}
+	if len(p) >= r.cap {
+		r.buf = append(r.buf[:0], p[len(p)-r.cap:]...)
+		return len(p), nil
+	}
+	need := len(r.buf) + len(p) - r.cap
+	if need > 0 {
+		copy(r.buf, r.buf[need:])
+		r.buf = r.buf[:len(r.buf)-need]
+	}
+	r.buf = append(r.buf, p...)
+	return len(p), nil
+}
+
+func main() {
+	cfg, err := loadConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	store, err := openStore(cfg.StatePath)
+	if err != nil {
+		log.Fatalf("open state: %v", err)
+	}
+
+	transport := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          200,
+		MaxIdleConnsPerHost:   100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		DialContext: (&net.Dialer{
+			Timeout:   10 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+	}
+
+	a := &app{
+		cfg:   cfg,
+		store: store,
+		client: &http.Client{
+			Transport: transport,
+			Timeout:   cfg.RequestTimeout,
+		},
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", a.handleHealth)
+	mux.HandleFunc("/admin", a.handleAdminPage)
+	mux.HandleFunc("/admin/", a.handleAdminPage)
+	mux.HandleFunc("/admin/api/stats", a.requireAdmin(a.handleAdminStats))
+	mux.HandleFunc("/admin/api/keys", a.requireAdmin(a.handleAdminKeys))
+	mux.HandleFunc("/admin/api/keys/", a.requireAdmin(a.handleAdminKeyByID))
+	mux.HandleFunc("/v1/", a.handleGateway)
+	mux.HandleFunc("/gemini/", a.handleGateway)
+	mux.HandleFunc("/", a.handleRoot)
+
+	h := recoveryMiddleware(requestIDMiddleware(corsMiddleware(mux)))
+	server := &http.Server{
+		Addr:              ":" + cfg.Port,
+		Handler:           h,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+
+	log.Printf("Guizang Gemini Gateway listening on :%s", cfg.Port)
+	log.Printf("OpenAI-compatible endpoint: /v1/*")
+	log.Printf("Gemini native passthrough: /gemini/*")
+	if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		log.Fatal(err)
+	}
+}
+
+func loadConfig() (config, error) {
+	cfg := config{
+		Port:           envOr("PORT", "8080"),
+		StatePath:      envOr("STATE_PATH", "/data/gateway.json"),
+		AdminToken:     strings.TrimSpace(os.Getenv("ADMIN_TOKEN")),
+		GeminiKeys:     splitSecrets(os.Getenv("GEMINI_API_KEYS")),
+		ModelAliases:   map[string]string{},
+		MaxBodyBytes:   defaultMaxBody,
+		RequestTimeout: 10 * time.Minute,
+	}
+	if cfg.AdminToken == "" {
+		return cfg, errors.New("ADMIN_TOKEN is required")
+	}
+	if len(cfg.GeminiKeys) == 0 {
+		return cfg, errors.New("GEMINI_API_KEYS is required")
+	}
+	if v := strings.TrimSpace(os.Getenv("MAX_BODY_MB")); v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || n < 1 || n > 512 {
+			return cfg, errors.New("MAX_BODY_MB must be an integer from 1 to 512")
+		}
+		cfg.MaxBodyBytes = n << 20
+	}
+	if v := strings.TrimSpace(os.Getenv("REQUEST_TIMEOUT_SECONDS")); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 30 || n > 3600 {
+			return cfg, errors.New("REQUEST_TIMEOUT_SECONDS must be 30..3600")
+		}
+		cfg.RequestTimeout = time.Duration(n) * time.Second
+	}
+	if raw := strings.TrimSpace(os.Getenv("MODEL_ALIASES")); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &cfg.ModelAliases); err != nil {
+			return cfg, fmt.Errorf("MODEL_ALIASES must be a JSON object: %w", err)
+		}
+	}
+	return cfg, nil
+}
+
+func splitSecrets(raw string) []string {
+	f := func(r rune) bool { return r == ',' || r == ';' || r == '\n' || r == '\r' }
+	parts := strings.FieldsFunc(raw, f)
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if s := strings.TrimSpace(p); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func envOr(k, fallback string) string {
+	if v := strings.TrimSpace(os.Getenv(k)); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func openStore(path string) (*stateStore, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, err
+	}
+	s := &stateStore{path: path, data: stateData{Version: 1, NextID: 1}}
+	b, err := os.ReadFile(path)
+	if err == nil {
+		if len(bytes.TrimSpace(b)) > 0 {
+			if err := json.Unmarshal(b, &s.data); err != nil {
+				return nil, fmt.Errorf("parse state: %w", err)
+			}
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	if s.data.NextID <= 0 {
+		s.data.NextID = 1
+	}
+	if s.data.Version == 0 {
+		s.data.Version = 1
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		if err := s.saveLocked(); err != nil {
+			return nil, err
+		}
+	}
+	return s, nil
+}
+
+func (s *stateStore) saveLocked() error {
+	b, err := json.MarshalIndent(s.data, "", "  ")
