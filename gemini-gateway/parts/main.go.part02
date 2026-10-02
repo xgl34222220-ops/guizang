@@ -272,4 +272,3 @@ func (a *app) handleAdminKeys(w http.ResponseWriter, r *http.Request) {
 		}
 		plain, err := newClientKey()
 		if err != nil {
-		
