@@ -337,12 +337,19 @@ def cleanup_watchdog(adb, marker, result_path, identity_path):
         if adb.boot_id() != context['boot_id']:
             raise ExperimentFailure('Watchdog refuses a replacement VM boot')
         before = context['heartbeat']
-        adb.passive(before)
+        initial = adb.passive(before)
+        initial_ams = adb.ams(before['pid'])
+        result['before_cleanup'] = {'probe': initial, 'ams_frozen': initial_ams}
         current = adb.heartbeat()
         if not same_instance(before, current):
             raise ExperimentFailure('Watchdog refuses a replacement fixture process')
         result.update(attempted=True, response=adb.thaw())
         result['resumed'] = observe_thaw(adb, before, current['counter'])
+        # Always perform safe cleanup, but never credit an already-thawed app
+        # to watchdog recovery. The handoff must still be kernel/AMS frozen.
+        require_kernel(initial, True)
+        if not initial_ams:
+            raise ExperimentFailure('Watchdog found fixture already absent from AMS frozen set')
         result['verified_thaw'] = True
     except Exception as error:
         result['error'] = str(error)
