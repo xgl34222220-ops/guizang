@@ -22,15 +22,16 @@ public:
     int get() const { return value_; }
 private: int value_;
 };
-std::optional<std::string> read_at(int directory, const std::string& path) {
+std::optional<std::string> read_at(int directory, const std::string& path,
+                                   size_t limit = guizang::kSmallProcRead) {
     Fd fd(openat(directory, path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK));
     if (fd.get() < 0) return std::nullopt;
-    std::string out; char buffer[4096];
+    std::string out; char buffer[16384];
     for (;;) {
         ssize_t count = read(fd.get(), buffer, sizeof(buffer));
         if (count == 0) return out;
         if (count < 0) { if (errno == EINTR) continue; return std::nullopt; }
-        if (out.size() + static_cast<size_t>(count) > 65536) return std::nullopt;
+        if (out.size() + static_cast<size_t>(count) > limit) return std::nullopt;
         out.append(buffer, static_cast<size_t>(count));
     }
 }
@@ -86,7 +87,7 @@ int main(int argc, char** argv) {
     const auto group = read_at(directory.get(), "cgroup");
     const auto unified = group ? guizang::unified_path(*group) : std::nullopt;
     // Resolve the actual existing cgroup2 mount; never migrate/create a hierarchy.
-    const auto mounts = read_at(AT_FDCWD, "/proc/self/mountinfo");
+    const auto mounts = read_at(AT_FDCWD, "/proc/self/mountinfo", guizang::kMountinfoRead);
     const auto mapped = (unified && mounts) ? guizang::freezer_path(*mounts, *unified) : std::nullopt;
     const std::string node = mapped ? *mapped : "";
     const bool freezer_node = !node.empty() && readable_regular(node);

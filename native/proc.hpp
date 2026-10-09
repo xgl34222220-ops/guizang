@@ -1,5 +1,6 @@
 #pragma once
 #include <charconv>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <sstream>
@@ -8,6 +9,12 @@
 #include <vector>
 
 namespace guizang {
+// Per-file read caps. /proc/<pid>/{stat,status,cgroup} are tiny; /proc/self/mountinfo on
+// Android (APEX, bind and root-manager overlay mounts) can exceed 64 KiB, and a capped
+// read there failed silently and misreported self_freezer_node=false.
+constexpr size_t kSmallProcRead = 64 * 1024;
+constexpr size_t kMountinfoRead = 1024 * 1024;
+static_assert(kMountinfoRead > kSmallProcRead, "mountinfo needs a larger cap");
 inline std::optional<uint64_t> unsigned_number(std::string_view text) {
     uint64_t result{};
     if (text.empty()) return std::nullopt;

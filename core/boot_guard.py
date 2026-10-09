@@ -7,8 +7,11 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import stat
 import tempfile
 from contextlib import contextmanager
+
+_TEMP_PREFIX = '.state-'
 
 
 class BootGuard:
@@ -18,10 +21,16 @@ class BootGuard:
         self.directory = directory
         self.limit = failure_limit
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        # Refuse a redirected state directory (symlink or non-directory): writing through
+        # it could touch files outside this module's own scope.
+        info = os.lstat(directory)
+        if not stat.S_ISDIR(info.st_mode):
+            raise NotADirectoryError('boot guard state path must be a real directory')
 
     @contextmanager
     def lock(self):
-        fd = os.open(self.directory / 'lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+        fd = os.open(self.directory / 'lock',
+                     os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
         try:
             fcntl.flock(fd, fcntl.LOCK_EX)
             yield
@@ -47,8 +56,27 @@ class BootGuard:
             # Corruption fails closed, rather than deleting evidence or re-enabling.
             return dict(schema=1, boot='', status='failed', failures=self.limit, disabled=True)
 
+    def _sweep_temporaries(self):
+        """Remove temp files a crash left between mkstemp and replace (lock held).
+
+        Without this, every interrupted write during a boot loop would leave one more
+        loose file in the state directory. Only our own prefix is touched; unlinking a
+        symlink removes the link itself, never its target.
+        """
+        try:
+            with os.scandir(self.directory) as entries:
+                for entry in entries:
+                    if entry.name.startswith(_TEMP_PREFIX):
+                        try:
+                            os.unlink(entry.path)
+                        except OSError:
+                            pass
+        except OSError:
+            pass
+
     def _save(self, state):
-        fd, name = tempfile.mkstemp(prefix='.state-', dir=self.directory)
+        self._sweep_temporaries()
+        fd, name = tempfile.mkstemp(prefix=_TEMP_PREFIX, dir=self.directory)
         try:
             with os.fdopen(fd, 'w') as stream:
                 json.dump(state, stream, sort_keys=True)
@@ -63,6 +91,23 @@ class BootGuard:
         finally:
             if os.path.exists(name):
                 os.unlink(name)
+
+    def snapshot(self):
+        """Read-only view of the persisted state; never writes or re-enables."""
+        with self.lock():
+            return self._load()
+
+    def reset(self, *, acknowledged=False):
+        """Explicit, manual re-enable after the user has investigated the failures.
+
+        Never called automatically. Requires keyword acknowledged=True (a real bool).
+        """
+        if acknowledged is not True:
+            raise ValueError('manual reset requires acknowledged=True')
+        with self.lock():
+            state = dict(schema=1, boot='', status='healthy', failures=0, disabled=False)
+            self._save(state)
+            return state
 
     def begin(self, boot_id):
         if not isinstance(boot_id, str) or not boot_id or len(boot_id) > 128:

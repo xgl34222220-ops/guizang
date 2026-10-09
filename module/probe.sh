@@ -1,10 +1,17 @@
 #!/system/bin/sh
 # Read-only capability hints, not a claim that safe app freezing is available.
 printf 'schema=1\nmode=observe\nexecutor=unavailable\n'
+# Empty/missing properties (e.g. ro.soc.model before API 31) report "unknown";
+# line breaks are flattened so each key stays exactly one key=value line.
+prop() {
+  value=$(getprop "$1" 2>/dev/null | tr -d '\r' | tr '\n' ' ')
+  value=${value% }
+  printf '%s\n' "${value:-unknown}"
+}
 if command -v getprop >/dev/null 2>&1; then
-  printf 'android_sdk=%s\n' "$(getprop ro.build.version.sdk)"
-  printf 'model=%s\n' "$(getprop ro.product.model)"
-  printf 'soc=%s\n' "$(getprop ro.soc.model)"
+  printf 'android_sdk=%s\n' "$(prop ro.build.version.sdk)"
+  printf 'model=%s\n' "$(prop ro.product.model)"
+  printf 'soc=%s\n' "$(prop ro.soc.model)"
 else
   printf 'android_sdk=unknown\nmodel=host\nsoc=unknown\n'
 fi

@@ -276,6 +276,9 @@ def run(args):
             deadline = time.monotonic() + 95
             while not watchdog_path.is_file() and time.monotonic() < deadline:
                 time.sleep(0.5)
+            if not watchdog_path.is_file():
+                # Report the real blocker instead of an opaque FileNotFoundError traceback.
+                raise vm.ExperimentFailure('Independent watchdog produced no result within 95s')
             recovery = json.loads(watchdog_path.read_text())
             if (recovery.get('attempted') is not True or recovery.get('verified_thaw') is not True
                     or recovery.get('trigger') != 'owner_eof' or not recovery.get('transition_review')):

@@ -1,7 +1,12 @@
 """Serialized policy/state-machine reference; adapters in this build are tests only."""
 from dataclasses import dataclass, field
 from enum import Enum
+import re
 from typing import Protocol
+
+# Android package segments: ASCII letter first, then ASCII letters, digits or '_'.
+# str.isalnum() would also accept non-ASCII letters/digits such as '应用' or '²'.
+_PACKAGE_SEGMENT = re.compile(r'[A-Za-z][A-Za-z0-9_]*')
 
 
 @dataclass(frozen=True)
@@ -14,9 +19,13 @@ class Identity:
 
     def valid(self):
         # First release deliberately rejects shared, isolated and secondary-user UIDs.
+        if not (type(self.uid) is int and type(self.pid) is int and type(self.starttime) is int
+                and isinstance(self.boot_id, str) and isinstance(self.package, str)):
+            return False
+        segments = self.package.split('.')
         return (10000 <= self.uid < 20000 and self.pid > 1 and self.starttime > 0
-                and bool(self.boot_id) and len(self.package.split('.')) >= 2
-                and all(p and p.replace('_', '').isalnum() for p in self.package.split('.')))
+                and bool(self.boot_id) and len(self.package) <= 255 and len(segments) >= 2
+                and all(_PACKAGE_SEGMENT.fullmatch(p) for p in segments))
 
 
 @dataclass(frozen=True)
@@ -107,6 +116,9 @@ class Freezer:
             return self._result('disabled')
         if not identity.valid():
             return self._result('invalid_identity')
+        # A missing/garbled background duration is never "long enough" (bool is not a duration).
+        if type(background_ms) is not int or background_ms < 0:
+            return self._result('invalid_signal')
         if identity.package not in self.config.allowlist:
             if identity in self.owned:
                 self.thaw_all()

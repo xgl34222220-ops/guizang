@@ -26,5 +26,17 @@ int main() {
     assert(guizang::frozen_event("populated 1\nfrozen 0\n") == false);
     assert(!guizang::frozen_event("populated 1\n"));
     assert(!guizang::frozen_event("frozen 2\n"));
-    std::cout << "21 native parser assertions passed\n";
+    // A realistic Android mountinfo can be far larger than 64 KiB; the matching cgroup2
+    // line near the end must still resolve (the probe's reader cap is kMountinfoRead).
+    std::string big;
+    for (int i = 0; big.size() < 200 * 1024; ++i)
+        big += std::to_string(100 + i) + " 23 253:5 / /apex/com.android.mod" + std::to_string(i)
+             + "@1 ro,nodev,noatime - ext4 /dev/block/dm-5 ro,seclabel\n";
+    assert(big.size() > guizang::kSmallProcRead && big.size() < guizang::kMountinfoRead);
+    big += "29 23 0:26 / /sys/fs/cgroup rw - cgroup2 none rw\n";
+    assert(guizang::freezer_path(big, "/uid_10123/pid_42") == "/sys/fs/cgroup/uid_10123/pid_42/cgroup.freeze");
+    // The most specific root wins regardless of line order.
+    const std::string nested = "30 23 0:26 /uid_10 /nested rw - cgroup2 c rw\n29 23 0:26 / /sys/fs/cgroup rw - cgroup2 c rw\n";
+    assert(guizang::freezer_path(nested, "/uid_10/pid_7") == "/nested/pid_7/cgroup.freeze");
+    std::cout << "25 native parser assertions passed\n";
 }

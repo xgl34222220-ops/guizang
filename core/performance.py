@@ -5,7 +5,9 @@ from typing import Protocol
 
 def scene(*, screen_on: bool | None, interactive: bool | None,
           audio: bool | None, thermal: str | None):
-    if thermal not in {'normal', 'warm', 'hot'} or None in (screen_on, interactive, audio):
+    # Only real booleans count; 'false'/0/None are unknown, never a truthy "on".
+    if (thermal not in {'normal', 'warm', 'hot'}
+            or any(type(v) is not bool for v in (screen_on, interactive, audio))):
         return 'unknown'
     if thermal == 'hot':
         return 'thermal_guard'
@@ -84,5 +86,7 @@ class Transaction:
                 # A different value belongs to an unknown actor; never overwrite it.
             except OSError:
                 pass
-        self.journal.save(remaining)
+        # Avoid a redundant fsync'd journal rewrite when nothing was resolved.
+        if remaining != pending:
+            self.journal.save(remaining)
         return not remaining
