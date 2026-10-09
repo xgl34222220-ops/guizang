@@ -14,6 +14,8 @@ Android Root 应用休眠与性能管理实验项目。
 
 主分支保存新项目起点；第一版实现与 CI 在独立测试分支审阅。没有发布安装包，没有在用户设备安装或执行 Root 操作。设备端冻结/性能执行器尚未开放；host 测试不能证明实机兼容性。
 
+本地自检（无需设备/Root/网络）：`sh tools/safety-baseline.sh && sh tests/customize_test.sh`；CI 工作流 `Module safety baseline` 在 push/PR 上运行同样的检查。
+
 - [设计与安全边界](docs/ARCHITECTURE.md)
 - [迁移和旧项目恢复点](docs/MIGRATION.md)
 - [研究与许可证记录](docs/RESEARCH.md)

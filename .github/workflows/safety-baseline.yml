@@ -1,0 +1,38 @@
+name: Module safety baseline
+on:
+  push:
+    branches: [main, 'hark/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: guizang-baseline-${{ github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash  # bash -eo pipefail, so `| tee` cannot hide a failure
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tool versions
+        run: |
+          shellcheck --version
+          python3 --version
+      - name: Static safety baseline (shellcheck, forbidden stages, module.prop, config)
+        run: sh tools/safety-baseline.sh 2>&1 | tee safety-baseline.txt
+      - name: customize.sh behaviour (dash)
+        run: sh tests/customize_test.sh 2>&1 | tee -a safety-baseline.txt
+      - name: customize.sh behaviour (busybox ash, closest to Android root managers)
+        run: |
+          sudo apt-get install -y -qq busybox >/dev/null
+          busybox sh tests/customize_test.sh 2>&1 | tee -a safety-baseline.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: guizang-safety-baseline
+          path: safety-baseline.txt
+          retention-days: 14
