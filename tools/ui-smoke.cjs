@@ -104,6 +104,38 @@ const server=http.createServer((req,res)=>{ const asset=assets[req.url]; if(!ass
       findings.push({viewport,overflow:false,flow:'allow → sleep → wake → fail x3 → stopped → reset',errors});
       await context.close();
     }
+    // Test-build bridge flow against a stubbed manager: loading → error → retry → snapshot.
+    const report={schema:2,source:'guizang-native-probe',read_only:true,android:true,effective_uid:0,sdk:'35',model:'AOSP fixture <b>',soc:'virtual',kernel:'6.6.30-android15',execution:'disabled',freeze_ready:false,capabilities:{cgroup2_membership:true,self_freezer_node:true,binder_node:true,pidfd_open:false,framework_coordinator:false,protection_signals:false,verified_thaw:false}};
+    for(const viewport of [{width:393,height:852},{width:1440,height:1040}]){
+      const context=await browser.newContext({viewport,deviceScaleFactor:1});
+      await context.route('**/*',route=>{const url=new URL(route.request().url()); if(url.origin!==origin)return route.abort(); if(url.pathname==='/build-config.js')return route.fulfill({contentType:'text/javascript',body:'window.GUIZANG_BUILD=Object.freeze({deviceReadOnlyBridge:true});'}); return route.continue();});
+      await context.addInitScript(json=>{let calls=0;window.ksu={exec(cmd,options,name){calls++;const first=calls===1;setTimeout(()=>window[name](first?1:0,first?'':json),400);}};},JSON.stringify(report));
+      const page=await context.newPage(); const errors=[];
+      page.on('pageerror',error=>errors.push(error.message));
+      await page.goto(origin);
+      const probe=page.locator('.device-panel .connection-button');
+      assert.equal((await probe.innerText()).trim(),'检查连接');
+      await probe.click();
+      assert.equal(await probe.isDisabled(),true,'button disabled while probing');
+      assert.equal(await probe.getAttribute('aria-busy'),'true');
+      assert.match(await page.locator('.device-panel p').innerText(),/正在读取/);
+      await page.locator('.device-panel [role="alert"]').waitFor();
+      assert.match(await page.locator('.device-panel [role="alert"]').innerText(),/诊断程序返回错误/);
+      assert.equal((await probe.innerText()).trim(),'重试只读诊断');
+      assert.equal(await probe.evaluate(el=>document.activeElement===el),true,'focus returns to the probe button');
+      await probe.click();
+      await page.locator('.capability-list').waitFor();
+      assert.equal(await page.locator('.device-panel [role="alert"]').count(),0,'error cleared after success');
+      assert.equal(await page.locator('.device-panel h2').innerText(),'AOSP fixture <b>','device strings rendered as text');
+      assert.equal(await page.locator('.capability-list > div').count(),7);
+      assert.equal(await page.locator('.capability-list .cap-state',{hasText:'已观察到'}).count(),3);
+      assert.equal((await probe.innerText()).trim(),'刷新只读诊断');
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`overflow with snapshot at ${viewport.width}`);
+      await page.screenshot({path:path.join(out,`${viewport.width}-overview-snapshot-full.png`),fullPage:true});
+      assert.deepEqual(errors,[],errors.join('\n'));
+      findings.push({viewport,flow:'probe loading → error alert → retry → capability snapshot',errors});
+      await context.close();
+    }
     fs.writeFileSync(path.join(out,'report.json'),JSON.stringify({scope:'isolated self-owned WebUI fixture; no Android/root execution',findings},null,2));
     console.log(JSON.stringify(findings,null,2));
   }finally{await browser.close();server.close();}

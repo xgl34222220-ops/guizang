@@ -43,7 +43,9 @@
           finished = true; clearTimeout(timer); delete host[name];
           if (error) reject(error); else resolve(value);
         };
-        const timer = setTimeout(() => done(Error('probe_timeout')), Math.max(10, Math.min(timeoutMs, 10000)));
+        // A non-numeric timeout must not collapse to an immediate (NaN → 0 ms) timeout.
+        const wait = Number.isFinite(timeoutMs) ? Math.max(10, Math.min(timeoutMs, 10000)) : 4000;
+        const timer = setTimeout(() => done(Error('probe_timeout')), wait);
         host[name] = (errno, stdout) => {
           if (errno !== 0) { done(Error('probe_failed')); return; }
           try { done(null, parseReport(stdout)); } catch (error) { done(error); }
