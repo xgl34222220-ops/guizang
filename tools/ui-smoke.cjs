@@ -128,6 +128,8 @@ const server=http.createServer((req,res)=>{ const asset=assets[req.url]; if(!ass
       assert.equal(await page.locator('.device-panel [role="alert"]').count(),0,'error cleared after success');
       assert.equal(await page.locator('.device-panel h2').innerText(),'AOSP fixture <b>','device strings rendered as text');
       assert.equal(await page.locator('.capability-list > div').count(),7);
+      assert.equal(await page.locator('.device-facts span').first().locator('strong').innerText(),'已确认','root uid 0 reported as confirmed');
+      assert.match(await page.locator('.console-footnote').innerText(),/只读连接/);
       assert.equal(await page.locator('.capability-list .cap-state',{hasText:'已观察到'}).count(),3);
       assert.equal((await probe.innerText()).trim(),'刷新只读诊断');
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`overflow with snapshot at ${viewport.width}`);
